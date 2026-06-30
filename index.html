@@ -2051,7 +2051,9 @@ async function loadData(){
     STATE.loaded = true;
     $('btnOverview').disabled = false;
     renderHealth();
-    renderAll();
+    // STATE.data를 그래프용 FILES로 주입 (이게 있어야 Trend Graph/SNS/Image Board가 그려짐)
+    if(window.__ingestFromState) window.__ingestFromState(STATE.data);
+    else renderAll();
     progress(100, 'Done');
     setTimeout(() => progress(null), 400);
 
@@ -5057,6 +5059,21 @@ renderHealth();
   }
   function renderAll(){lightHealth();renderOverview();renderTrendGraph();renderSNS();renderBoard();}
   window.__renderV12=renderAll;
+  // ── loadData(URL 자동로드)가 채운 STATE.data를 그래프용 FILES로 주입하는 다리 ──
+  window.__ingestFromState=function(dataObj){
+    FILES.length=0;   // 기존 비우고
+    const buckets=[
+      ['instagram', dataObj.instagram],
+      ['wgsn',      dataObj.wgsn],
+      ['musinsa',   dataObj.ranking],   // ranking 버킷 = 무신사
+      ['xhs',       dataObj.xhs],
+      ['news',      dataObj.news],
+    ];
+    buckets.forEach(([name, rows])=>{
+      if(rows && rows.length) FILES.push({name:name, rows:rows});
+    });
+    renderAll();
+  };
   // Sub 2차필터: 이벤트 위임(다시 그려도 항상 작동) + 같은 거 재클릭 시 리셋
   document.addEventListener('click',e=>{
     const el=e.target.closest('[data-ovsub]');if(!el)return;

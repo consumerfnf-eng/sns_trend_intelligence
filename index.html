@@ -5233,7 +5233,7 @@ renderHealth();
     const byCat={},order=[];
     cards.forEach(c=>{(byCat[c.cat]=byCat[c.cat]||[]).push(c);});
     CAT_ORDER.forEach(c=>{if(byCat[c])order.push(c);});
-    const perCat=(OV_CAT==='ALL')?12:120;
+    const perCat=(OV_CAT==='ALL')?18:126;
     // 리프레시: IB_SEED가 있으면 그 시드로 셔플해서 다른 사진 표시 (개수는 동일)
     if(window.IB_SEED){
       const seed=window.IB_SEED;

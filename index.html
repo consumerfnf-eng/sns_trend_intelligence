@@ -1780,12 +1780,19 @@ function catHTML(c){
   }
   const patSec=(c.patRatio>=15&&c.patterns.length>=3)?donutSec('PATTERN · '+c.patRatio+'% patterned',c.patterns,c.total,neonFn,false):'';
   const ex=c.extra||{};
-  // ── TOP: 넥라인 + 슬리브 길이 그래프 ──
+  // ── TOP: 넥라인 + 패턴 그래프 ──
   let topExtra='';
   if(c.name==='Top'){
     const neck=(ex.neckline&&ex.neckline.length)?donutSec('NECKLINE — 넥라인',ex.neckline,c.total,neonFn,false):'';
-    const slv=(ex.sleeve&&ex.sleeve.length)?donutSec('SLEEVE LENGTH — 소매 길이',ex.sleeve,c.total,neonFn,false):'';
-    if(neck||slv)topExtra='<div class="grid2">'+neck+slv+'</div>';
+    const pat=(ex.pattern&&ex.pattern.length)?donutSec('PATTERN — 패턴',ex.pattern,c.total,neonFn,false):'';
+    if(neck||pat)topExtra='<div class="grid2">'+neck+pat+'</div>';
+  }
+  // ── OUTERWEAR: 칼라 + 핏 그래프 ──
+  let outerExtra='';
+  if(c.name==='Outerwear'||c.name==='Outer'){
+    const col=(ex.collar&&ex.collar.length)?donutSec('COLLAR — 칼라',ex.collar,c.total,neonFn,false):'';
+    const fit=(ex.fit&&ex.fit.length)?donutSec('FIT — 핏',ex.fit,c.total,neonFn,false):'';
+    if(col||fit)outerExtra='<div class="grid2">'+col+fit+'</div>';
   }
   // ── BOTTOM: Pants / Skirt 분리 ──
   let botExtra='';
@@ -1836,6 +1843,7 @@ function catHTML(c){
     '<div class="summary">'+c.summary+'</div>'+
     '<div class="top3wrap">'+top3Block('ITEM TOP 3',c.items,c.total)+top3Block('DETAIL TOP 3',c.details,c.total)+'</div>'+
     topExtra+
+    outerExtra+
     '<div class="lvltoggle"><span class="lvlbtn on" data-lvl="item">Item</span><span class="lvlbtn" data-lvl="detail">Detail</span></div>'+
     '<div class="lvlsec" data-lvl="item">'+donutSec('ITEM — 품목별 (범례에 마우스 올리면 대표사진)',c.items,c.total,neonFn,true)+'</div>'+
     '<div class="lvlsec" data-lvl="detail" style="display:none">'+donutSec('DETAIL — 세부 조합별',c.details,c.total,neonFn,true)+'</div>'+
@@ -5433,13 +5441,35 @@ renderHealth();
       const getDet=(r,ax)=>{let d={};try{d=JSON.parse(r.details||'{}');}catch(e){}let v=d[ax];return Array.isArray(v)?v[0]:v;};
 
       const extra={};
-      // ── TOP: 넥라인 + 슬리브 길이 그래프 ──
+      // ── TOP: 넥라인 유지 + (슬리브 대신) 패턴 그래프 ──
       if(NORM==='TOP'){
         extra.neckline=axisDist(rows, r=>{
           let v=getDet(r,'neckline')||getDet(r,'collar');
           return v;
         });
-        extra.sleeve=axisDist(rows, r=>getDet(r,'sleeve_length'));
+        // 패턴 분포 (Solid/None 제외)
+        extra.pattern=(()=>{
+          const m=new Map();
+          rows.forEach(r=>{let d={};try{d=JSON.parse(r.details||'{}');}catch(e){}
+            let pv=d.pattern||r.pattern;
+            (Array.isArray(pv)?pv:[pv]).forEach(x=>{if(x&&!/^(solid|none|무지|plain)$/i.test(String(x).trim()))m.set(x,(m.get(x)||0)+1);});});
+          return [...m.entries()].map(([k,v])=>({label:k,count:v})).sort((a,b)=>b.count-a.count).slice(0,8);
+        })();
+      }
+      // ── OUTERWEAR: collar + fit 그래프 ──
+      if(NORM==='OUTERWEAR'){
+        extra.collar=axisDist(rows, r=>{
+          let v=getDet(r,'collar')||getDet(r,'neckline');
+          return v;
+        });
+        extra.fit=axisDist(rows, r=>{
+          let v=getDet(r,'fit')||getDet(r,'silhouette');
+          if(v)return String(v).replace(/ Fit$/,'');
+          // sub2 이름에서 핏 추출 (Oversized/Slim/Boxy 등)
+          const s2=(eff(r)?.sub2||'');
+          const fm=s2.match(/(Oversized|Boxy|Slim|Relaxed|Cropped|Regular|Fitted)/i);
+          return fm?fm[1]:null;
+        });
       }
       // ── BOTTOM: Pants / Denim / Skirt 분리 ──
       if(NORM==='BOTTOM'){

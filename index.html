@@ -1310,9 +1310,8 @@ const SEASON_DEFS = {
 };
 
 // ─── 데이터 소스 (GitHub raw CSV + Google Sheet 게시 CSV) ─────────────────
-// 인스타는 용량이 커서 GitHub raw에서 로드. 무신사/WGSN은 Google Sheet 게시 CSV에서 로드.
-// 각 URL을 본인 것으로 채우면 대시보드가 자동으로 합쳐 읽음. 비우면('') 그 소스는 건너뜀.
-const IG_CSV_URL = 'https://raw.githubusercontent.com/consumerfnf-eng/sns_trend_intelligence/main/instagram_light.csv';   // GitHub raw: instagram_light.csv 의 raw URL
+// 인스타: 용량 커서 GitHub raw. 무신사/WGSN: Google Sheet 게시 CSV. 비우면('') 그 소스 건너뜀.
+const IG_CSV_URL = 'https://raw.githubusercontent.com/consumerfnf-eng/sns_trend_intelligence/main/instagram_light.csv';
 const MUSINSA_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR27wiGQaobIBn4cHFupGholL_gR9wuY-lVisXotF6qjPYqUHqhVO1HEnoJKkIA1BrAPDZwn4sF4I48/pub?output=csv';
 const WGSN_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTwf8afagHB9iAqxDJFJHb0XfYrLBbf7JqgkxjNleXBqAQnT4XKKgoU8FROcj0JLSlSrKtTfEHHhLMH/pub?output=csv';
 
@@ -1929,11 +1928,11 @@ function renderHealth(){
 
 // ─── LOAD DATA ──────────────────────────────────────────
 async function loadData(){
-  // CSV 직접 로드 모드: Apps Script Connect 없이도 CSV URL이 있으면 진행
-  const hasCsvSource = (typeof IG_CSV_URL==='string'&&IG_CSV_URL) ||
-                       (typeof MUSINSA_CSV_URL==='string'&&MUSINSA_CSV_URL) ||
-                       (typeof WGSN_CSV_URL==='string'&&WGSN_CSV_URL);
-  if(!STATE.connected && !hasCsvSource){ toast('Connect first (또는 CSV URL 설정)', true); return; }
+  // CSV 직접 로드 모드: Apps Script Connect 없이 CSV URL만으로 동작
+  const hasCsv = (typeof IG_CSV_URL==='string'&&IG_CSV_URL) ||
+                 (typeof MUSINSA_CSV_URL==='string'&&MUSINSA_CSV_URL) ||
+                 (typeof WGSN_CSV_URL==='string'&&WGSN_CSV_URL);
+  if(!STATE.connected && !hasCsv){ toast('CSV URL이 없습니다', true); return; }
   progress(5, 'Loading…');
 
   // Reset
@@ -1944,7 +1943,7 @@ async function loadData(){
   STATE.data.news = [];
 
   try{
-    // CSV 파서 (이 스코프 전용 — 외부 toObj/parseCSV 의존 제거)
+    // ── 자체 CSV 파서 (외부 함수 의존 없음) ──
     const _parseCSV = (t) => {
       const o=[]; let i=0,f='',r=[],q=false;
       while(i<t.length){const c=t[i];
@@ -1963,60 +1962,40 @@ async function loadData(){
       const h=g[0].map(x=>x.trim());
       return g.slice(1).filter(r=>r.length>1).map(r=>{const o={};h.forEach((k,i)=>o[k]=r[i]!==undefined?r[i]:'');return o;});
     };
+
     let allItems = [];
-    // ── Apps Script(Sheet via Code.gs)가 연결돼 있으면 월별 데이터도 가져옴 ──
-    if(STATE.connected){
-      const def = SEASON_DEFS[STATE.seasonCode];
-      const monthsToFetch = STATE.month
-        ? [STATE.month]
-        : (def ? def.months.filter(m => STATE.availableMonths.includes(m)) : []);
-      if(!monthsToFetch.length && STATE.availableMonths) monthsToFetch.push(...STATE.availableMonths);
-      console.log('[loadData] fetching months:', monthsToFetch);
-      for(let i = 0; i < monthsToFetch.length; i++){
-        const m = monthsToFetch[i];
-        progress(10 + (50 * i / monthsToFetch.length), `Loading ${m}…`);
-        try{
-          const r = await apiCall('getResults', { month: m });
-          let items = [];
-          if(r && r.ok){ items = r.data || r.items || []; }
-          else if(Array.isArray(r)){ items = r; }
-          else if(r && Array.isArray(r.data)){ items = r.data; }
-          allItems = allItems.concat(items);
-        }catch(e){ console.warn(`[loadData] ${m} failed:`, e.message); }
-      }
-    }
 
-    progress(72, 'Loading Instagram from GitHub…');
-    // ─── 인스타 데이터는 용량이 커서 GitHub raw CSV에서 직접 로드 ───
-    if (typeof IG_CSV_URL === 'string' && IG_CSV_URL) {
-      try {
-        const igRes = await fetch(IG_CSV_URL, { cache: 'no-store' });
-        if (igRes.ok) {
-          const igRows = _toObj(_parseCSV(await igRes.text()));
-          igRows.forEach(r => { if (!r.source) r.source = 'instagram'; });
-          allItems = allItems.concat(igRows);
-          console.log(`[loadData] GitHub IG: ${igRows.length} rows`);
-        } else console.warn('[loadData] IG CSV fetch failed:', igRes.status);
-      } catch (e) { console.warn('[loadData] IG CSV error:', e.message); }
-    }
-
-    // ─── 무신사/WGSN은 Google Sheet 게시(pub) CSV에서 직접 로드 ───
-    const sheetSrcs = [
-      { url: typeof MUSINSA_CSV_URL==='string'?MUSINSA_CSV_URL:'', src: 'musinsa', label: 'Musinsa' },
-      { url: typeof WGSN_CSV_URL==='string'?WGSN_CSV_URL:'', src: 'wgsn', label: 'WGSN' },
-    ];
-    for (const s of sheetSrcs) {
-      if (!s.url) continue;
-      progress(73, `Loading ${s.label} from Sheet…`);
-      try {
-        const res = await fetch(s.url, { cache: 'no-store' });
-        if (res.ok) {
+    // ── 인스타: GitHub raw CSV ──
+    if (typeof IG_CSV_URL==='string' && IG_CSV_URL){
+      progress(20, 'Loading Instagram (GitHub)…');
+      try{
+        const res = await fetch(IG_CSV_URL, { cache:'no-store' });
+        if(res.ok){
           const rows = _toObj(_parseCSV(await res.text()));
-          rows.forEach(r => { if (!r.source) r.source = s.src; });
+          rows.forEach(r=>{ if(!r.source) r.source='instagram'; });
+          allItems = allItems.concat(rows);
+          console.log(`[loadData] GitHub IG: ${rows.length} rows`);
+        } else console.warn('[loadData] IG fetch failed:', res.status);
+      }catch(e){ console.warn('[loadData] IG error:', e.message); }
+    }
+
+    // ── 무신사/WGSN: Google Sheet 게시 CSV ──
+    const sheetSrcs = [
+      { url: typeof MUSINSA_CSV_URL==='string'?MUSINSA_CSV_URL:'', src:'musinsa', label:'Musinsa' },
+      { url: typeof WGSN_CSV_URL==='string'?WGSN_CSV_URL:'', src:'wgsn', label:'WGSN' },
+    ];
+    for(const s of sheetSrcs){
+      if(!s.url) continue;
+      progress(50, `Loading ${s.label} (Sheet)…`);
+      try{
+        const res = await fetch(s.url, { cache:'no-store' });
+        if(res.ok){
+          const rows = _toObj(_parseCSV(await res.text()));
+          rows.forEach(r=>{ if(!r.source) r.source=s.src; });
           allItems = allItems.concat(rows);
           console.log(`[loadData] Sheet ${s.label}: ${rows.length} rows`);
         } else console.warn(`[loadData] ${s.label} fetch failed:`, res.status);
-      } catch (e) { console.warn(`[loadData] ${s.label} error:`, e.message); }
+      }catch(e){ console.warn(`[loadData] ${s.label} error:`, e.message); }
     }
 
     progress(75, 'Categorizing by source…');
@@ -2030,7 +2009,6 @@ async function loadData(){
       else if(src === 'trend_insight' || src === 'wgsn' || src === 'trend insight') STATE.data.wgsn.push(it);
       else if(src === 'ranking' || src === 'musinsa') STATE.data.ranking.push(it);
       else {
-        // No source tag — try to infer from fields
         if(it.imageUrl || it.subCategory1 || it.sub_category) STATE.data.instagram.push(it);
         else STATE.data.wgsn.push(it);
       }
@@ -2051,7 +2029,7 @@ async function loadData(){
     STATE.loaded = true;
     $('btnOverview').disabled = false;
     renderHealth();
-    // STATE.data를 그래프용 FILES로 주입 (이게 있어야 Trend Graph/SNS/Image Board가 그려짐)
+    // STATE.data → 그래프용 FILES 주입 (이게 있어야 Trend Graph/SNS/Image Board 그려짐)
     if(window.__ingestFromState) window.__ingestFromState(STATE.data);
     else renderAll();
     progress(100, 'Done');
@@ -5061,15 +5039,9 @@ renderHealth();
   window.__renderV12=renderAll;
   // ── loadData(URL 자동로드)가 채운 STATE.data를 그래프용 FILES로 주입하는 다리 ──
   window.__ingestFromState=function(dataObj){
-    FILES.length=0;   // 기존 비우고
-    const buckets=[
-      ['instagram', dataObj.instagram],
-      ['wgsn',      dataObj.wgsn],
-      ['musinsa',   dataObj.ranking],   // ranking 버킷 = 무신사
-      ['xhs',       dataObj.xhs],
-      ['news',      dataObj.news],
-    ];
-    buckets.forEach(([name, rows])=>{
+    FILES.length=0;
+    [['instagram',dataObj.instagram],['wgsn',dataObj.wgsn],['musinsa',dataObj.ranking],
+     ['xhs',dataObj.xhs],['news',dataObj.news]].forEach(([name,rows])=>{
       if(rows && rows.length) FILES.push({name:name, rows:rows});
     });
     renderAll();

@@ -1944,6 +1944,25 @@ async function loadData(){
   STATE.data.news = [];
 
   try{
+    // CSV 파서 (이 스코프 전용 — 외부 toObj/parseCSV 의존 제거)
+    const _parseCSV = (t) => {
+      const o=[]; let i=0,f='',r=[],q=false;
+      while(i<t.length){const c=t[i];
+        if(q){ if(c==='"'){ if(t[i+1]==='"'){f+='"';i+=2;continue;} q=false;i++;continue;} f+=c;i++;continue;}
+        if(c==='"'){q=true;i++;continue;}
+        if(c===','){r.push(f);f='';i++;continue;}
+        if(c==='\r'){i++;continue;}
+        if(c==='\n'){r.push(f);o.push(r);r=[];f='';i++;continue;}
+        f+=c;i++;
+      }
+      if(f.length||r.length){r.push(f);o.push(r);}
+      return o;
+    };
+    const _toObj = (g) => {
+      if(!g.length)return[];
+      const h=g[0].map(x=>x.trim());
+      return g.slice(1).filter(r=>r.length>1).map(r=>{const o={};h.forEach((k,i)=>o[k]=r[i]!==undefined?r[i]:'');return o;});
+    };
     let allItems = [];
     // ── Apps Script(Sheet via Code.gs)가 연결돼 있으면 월별 데이터도 가져옴 ──
     if(STATE.connected){
@@ -1973,7 +1992,7 @@ async function loadData(){
       try {
         const igRes = await fetch(IG_CSV_URL, { cache: 'no-store' });
         if (igRes.ok) {
-          const igRows = toObj(parseCSV(await igRes.text()));
+          const igRows = _toObj(_parseCSV(await igRes.text()));
           igRows.forEach(r => { if (!r.source) r.source = 'instagram'; });
           allItems = allItems.concat(igRows);
           console.log(`[loadData] GitHub IG: ${igRows.length} rows`);
@@ -1992,7 +2011,7 @@ async function loadData(){
       try {
         const res = await fetch(s.url, { cache: 'no-store' });
         if (res.ok) {
-          const rows = toObj(parseCSV(await res.text()));
+          const rows = _toObj(_parseCSV(await res.text()));
           rows.forEach(r => { if (!r.source) r.source = s.src; });
           allItems = allItems.concat(rows);
           console.log(`[loadData] Sheet ${s.label}: ${rows.length} rows`);

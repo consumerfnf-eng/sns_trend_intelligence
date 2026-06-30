@@ -1780,12 +1780,12 @@ function catHTML(c){
   }
   const patSec=(c.patRatio>=15&&c.patterns.length>=3)?donutSec('PATTERN · '+c.patRatio+'% patterned',c.patterns,c.total,neonFn,false):'';
   const ex=c.extra||{};
-  // ── TOP: 넥라인 + 패턴 그래프 ──
+  // ── TOP: 넥라인 + 숄더 디자인 그래프 ──
   let topExtra='';
   if(c.name==='Top'){
     const neck=(ex.neckline&&ex.neckline.length)?donutSec('NECKLINE — 넥라인',ex.neckline,c.total,neonFn,false):'';
-    const pat=(ex.pattern&&ex.pattern.length)?donutSec('PATTERN — 패턴',ex.pattern,c.total,neonFn,false):'';
-    if(neck||pat)topExtra='<div class="grid2">'+neck+pat+'</div>';
+    const shd=(ex.shoulder&&ex.shoulder.length)?donutSec('SHOULDER DESIGN — 숄더 디자인',ex.shoulder,c.total,neonFn,false):'';
+    if(neck||shd)topExtra='<div class="grid2">'+neck+shd+'</div>';
   }
   // ── OUTERWEAR: 칼라 + 핏 그래프 ──
   let outerExtra='';
@@ -5441,20 +5441,19 @@ renderHealth();
       const getDet=(r,ax)=>{let d={};try{d=JSON.parse(r.details||'{}');}catch(e){}let v=d[ax];return Array.isArray(v)?v[0]:v;};
 
       const extra={};
-      // ── TOP: 넥라인 유지 + (슬리브 대신) 패턴 그래프 ──
+      // ── TOP: 넥라인 유지 + (슬리브 대신) 숄더 디자인 그래프 ──
       if(NORM==='TOP'){
         extra.neckline=axisDist(rows, r=>{
           let v=getDet(r,'neckline')||getDet(r,'collar');
           return v;
         });
-        // 패턴 분포 (Solid/None 제외)
-        extra.pattern=(()=>{
-          const m=new Map();
-          rows.forEach(r=>{let d={};try{d=JSON.parse(r.details||'{}');}catch(e){}
-            let pv=d.pattern||r.pattern;
-            (Array.isArray(pv)?pv:[pv]).forEach(x=>{if(x&&!/^(solid|none|무지|plain)$/i.test(String(x).trim()))m.set(x,(m.get(x)||0)+1);});});
-          return [...m.entries()].map(([k,v])=>({label:k,count:v})).sort((a,b)=>b.count-a.count).slice(0,8);
-        })();
+        // 숄더 디자인 분포 (Off-shoulder/One-shoulder/Cold-shoulder/Halter/Drop-shoulder 등)
+        extra.shoulder=axisDist(rows, r=>{
+          let v=getDet(r,'shoulder_design')||getDet(r,'shoulder');
+          // neckline에 숄더 정보가 들어간 경우도 흡수
+          if(!v){let nk=getDet(r,'neckline');if(nk&&/shoulder|halter|off|one|cold|drop/i.test(String(nk)))v=nk;}
+          return v;
+        });
       }
       // ── OUTERWEAR: collar + fit 그래프 ──
       if(NORM==='OUTERWEAR'){

@@ -213,6 +213,32 @@
   .chip.season-fw.on::before{ background:#fff; }
 
   .actions{ display: flex; gap: 6px; margin-left: auto; }
+  /* ── Runway 리포트 바 (다른 컨트롤과 통일) ── */
+  .runway-bar{ display:flex; align-items:center; gap:8px; padding:8px 20px; border-bottom:0.5px solid var(--line); flex-wrap:wrap; }
+  .runway-bar .ctrl-label{ font-family:var(--mono); font-size:9px; letter-spacing:0.18em; text-transform:uppercase; color:var(--ink-3); }
+  .runway-chip{
+    height:26px; padding:0 13px;
+    border:0.5px solid var(--warn);
+    background:var(--warn); color:#fff;
+    font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase;
+    border-radius:999px; cursor:pointer;
+    display:inline-flex; align-items:center; gap:5px;
+    transition:all 0.12s;
+  }
+  .runway-chip:hover{ background:#9c6e14; border-color:#9c6e14; }
+  .runway-chip .rw-arrow{ font-size:9px; opacity:.8; }
+  .runway-chip.coming{
+    background:var(--bg-card); color:var(--ink-3); border:0.5px solid var(--line); border-style:dashed; cursor:default;
+  }
+  .runway-chip.coming:hover{ background:var(--bg-card); border-color:var(--line); }
+  /* ── Runway 전체화면 오버레이 ── */
+  .runway-overlay{ display:none; position:fixed; inset:0; z-index:9999; background:#fff; flex-direction:column; }
+  .runway-overlay.open{ display:flex; }
+  .runway-overlay-bar{ display:flex; align-items:center; justify-content:space-between; padding:10px 18px; border-bottom:0.5px solid var(--line); background:var(--bg-card); flex:0 0 auto; }
+  .runway-overlay-title{ font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink); }
+  .runway-close{ cursor:pointer; height:26px; padding:0 13px; border:0.5px solid var(--ink); border-radius:999px; background:var(--bg-card); font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink); }
+  .runway-close:hover{ background:var(--ink); color:#fff; }
+  .runway-frame{ flex:1 1 auto; width:100%; border:0; }
   .btn-action{
     height: 28px;
     padding: 0 14px;
@@ -1113,7 +1139,6 @@
   <div class="conn-wrap" style="display:none">
     <input type="text" id="apiUrl" class="url-input" placeholder="Apps Script Web App URL" />
     <button id="btnConn" class="btn-conn" onclick="connect()">Connect</button>
-    <label class="btn-conn" id="btnCsv" style="cursor:pointer;display:inline-flex;align-items:center">Load CSV<input type="file" id="csvFile" accept=".csv" multiple style="display:none"></label>
   </div>
 
   <div class="health" id="healthBar">
@@ -1167,7 +1192,6 @@
     </div>
   </div>
   <div class="ctrl-group">
-    <label class="chip" id="btnCsv2" style="cursor:pointer;border-style:dashed">⬆ Load CSV<input type="file" id="csvFile2" accept=".csv" multiple style="display:none"></label>
     <button class="chip" id="btnExportSeason" style="cursor:pointer" onclick="exportSeasonReport()" title="현재 선택된 시즌만 박아서 단일 HTML 보고서로 저장">⬇ 시즌 리포트</button>
   </div>
   <div class="ctrl-group" id="monthGroup" style="display:none">
@@ -1201,10 +1225,22 @@
     <button class="btn-action" id="btnLoad" onclick="loadData()">
       <span class="arrow">↓</span> Load Data
     </button>
-    <button class="btn-action" id="btnOverview" onclick="renderAll()" disabled>
-      <span class="arrow">▸</span> Overview
-    </button>
   </div>
+</div>
+
+<!-- RUNWAY REPORTS BAR -->
+<div class="runway-bar" id="runwayBar">
+  <span class="ctrl-label">Runway</span>
+  <div class="chips" id="runwayChips"><!-- JS가 채움 --></div>
+</div>
+
+<!-- RUNWAY OVERLAY (전체화면 iframe) -->
+<div class="runway-overlay" id="runwayOverlay">
+  <div class="runway-overlay-bar">
+    <span class="runway-overlay-title" id="runwayOverlayTitle"></span>
+    <button class="runway-close" onclick="closeRunway()">✕ 닫기</button>
+  </div>
+  <iframe class="runway-frame" id="runwayFrame" src="about:blank"></iframe>
 </div>
 
 <!-- TABS -->
@@ -1308,6 +1344,15 @@ const SEASON_DEFS = {
   '27SS':   { type:'SS', months:['2027-03','2027-04','2027-05','2027-06','2027-07','2027-08'], label:'2027 S/S' },
   '2728FW': { type:'FW', months:['2027-09','2027-10','2027-11','2027-12','2028-01','2028-02'], label:'27/28 F/W' },
 };
+
+// ─── 런웨이 리포트 목록 (나중에 여기 한 줄씩 추가하면 버튼 자동 생성) ───
+// file: GitHub raw URL. 비워두면('') "준비중"으로 표시.
+const RUNWAY_REPORTS = [
+  { id:'26fw', label:'26 FW RUNWAY',
+    file:'https://raw.githubusercontent.com/consumerfnf-eng/sns_trend_intelligence/main/runway/26FW_RUNWAY.html' },
+  { id:'27ss', label:'27 SS RUNWAY', file:'' },   // 준비되면 URL 넣기
+  { id:'27fw', label:'27 FW RUNWAY', file:'' },
+];
 
 // ─── 데이터 소스 (GitHub raw CSV + Google Sheet 게시 CSV) ─────────────────
 // 인스타: 용량 커서 GitHub raw. 무신사/WGSN: Google Sheet 게시 CSV. 비우면('') 그 소스 건너뜀.
@@ -2035,7 +2080,7 @@ async function loadData(){
 
     progress(95, 'Rendering…');
     STATE.loaded = true;
-    $('btnOverview').disabled = false;
+    { const _bo=$('btnOverview'); if(_bo)_bo.disabled=false; }
     renderHealth();
     // STATE.data → 그래프용 FILES 주입 (이게 있어야 Trend Graph/SNS/Image Board 그려짐)
     if(window.__ingestFromState) window.__ingestFromState(STATE.data);
@@ -2067,6 +2112,40 @@ async function loadData(){
 }
 
 // ─── TABS / CONTROLS ────────────────────────────────────
+// ─── 런웨이 리포트 버튼 생성 + 열기/닫기 ───
+function buildRunwayChips(){
+  const wrap=document.getElementById('runwayChips');
+  if(!wrap)return;
+  wrap.innerHTML = RUNWAY_REPORTS.map(r=>{
+    if(r.file){
+      return `<button class="runway-chip" onclick="openRunway('${r.id}')">${r.label} <span class="rw-arrow">▸</span></button>`;
+    }
+    return `<span class="runway-chip coming">${r.label} · 준비중</span>`;
+  }).join('');
+}
+function openRunway(id){
+  const r=RUNWAY_REPORTS.find(x=>x.id===id);
+  if(!r||!r.file)return;
+  const ov=document.getElementById('runwayOverlay');
+  const fr=document.getElementById('runwayFrame');
+  const ti=document.getElementById('runwayOverlayTitle');
+  if(ti)ti.textContent=r.label;
+  if(fr)fr.src=r.file;
+  if(ov)ov.classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeRunway(){
+  const ov=document.getElementById('runwayOverlay');
+  const fr=document.getElementById('runwayFrame');
+  if(ov)ov.classList.remove('open');
+  if(fr)fr.src='about:blank';   // 메모리 해제
+  document.body.style.overflow='';
+}
+// ESC로 닫기
+document.addEventListener('keydown', e=>{ if(e.key==='Escape')closeRunway(); });
+// 페이지 로드 시 버튼 생성
+buildRunwayChips();
+
 function switchTab(el){
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));

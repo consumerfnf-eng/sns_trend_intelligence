@@ -5220,7 +5220,7 @@ renderHealth();
     const tabs=`<div class="ib-tabs">
       <span class="ib-tab ${IB_SRC==='sns'?'on':''}" data-ibsrc="sns">SNS</span>
       <span class="ib-tab ${IB_SRC==='musinsa'?'on':''}" data-ibsrc="musinsa">Musinsa</span></div>`;
-    const actions=`<span class="ib-actions"><button class="ib-btn" data-ibexportcsv>수정 반영 CSV 저장</button> <button class="ib-btn ib-btn2" data-ibexport>메모만(overrides)</button> <label class="ib-btn ib-btn2">Import<input type="file" accept=".csv" data-ibimport hidden></label></span>`;
+    const actions=`<span class="ib-actions"><button class="ib-btn ib-btn3" data-ibrefresh>🔄 다른 사진</button> <button class="ib-btn" data-ibexportcsv>수정 반영 CSV 저장</button> <button class="ib-btn ib-btn2" data-ibexport>메모만(overrides)</button> <label class="ib-btn ib-btn2">Import<input type="file" accept=".csv" data-ibimport hidden></label></span>`;
     const bar=wantSNS?`<div class="ib-bar">
       <span class="ib-baret">Instagram 기본 = 여성 · 사진의 M/W로 교정 · ✕ 제외 · 드롭다운+적용으로 분류 수정 · ${ovN}건 수정됨</span>
       ${actions}
@@ -5234,6 +5234,15 @@ renderHealth();
     cards.forEach(c=>{(byCat[c.cat]=byCat[c.cat]||[]).push(c);});
     CAT_ORDER.forEach(c=>{if(byCat[c])order.push(c);});
     const perCat=(OV_CAT==='ALL')?12:120;
+    // 리프레시: IB_SEED가 있으면 그 시드로 셔플해서 다른 사진 표시 (개수는 동일)
+    if(window.IB_SEED){
+      const seed=window.IB_SEED;
+      const seededRand=(i)=>{const x=Math.sin(seed*9301+i*49297)*233280;return x-Math.floor(x);};
+      Object.keys(byCat).forEach(c=>{
+        // 상위권(strength 높은 것) 우선순위는 약하게 유지하되 섞기
+        byCat[c]=byCat[c].map((card,i)=>({card,r:seededRand(i)})).sort((a,b)=>a.r-b.r).map(x=>x.card);
+      });
+    }
     let h=tabs+bar+`<div class="ov-head">Image Board — ${wantSNS?'SNS':'Musinsa'}${OV_CAT!=='ALL'?' · '+esc(OV_CAT):''}${OV_GENDER!=='ALL'?' · '+(OV_GENDER==='여자'?'Women':'Men'):''}</div><div class="ov-sub">${wantSNS?'SNS photos · M/W toggle per photo':'Musinsa products · click to open'}</div>`;
     order.forEach(c=>{
       h+=`<div class="ib-cat">${esc(c)} <span class="ib-cn">${byCat[c].length}</span></div><div class="ib-grid">`;
@@ -5274,6 +5283,9 @@ renderHealth();
   }
   function wireBoard(){
     document.querySelectorAll('.ib-tab').forEach(t=>t.addEventListener('click',()=>{IB_SRC=t.getAttribute('data-ibsrc');renderBoard();}));
+    // 🔄 다른 사진: 시드 바꿔서 같은 개수로 다른 사진 표시 (수정값은 유지)
+    const rfBtn=document.querySelector('[data-ibrefresh]');
+    if(rfBtn)rfBtn.addEventListener('click',()=>{ window.IB_SEED=Date.now()%100000; renderBoard(); });
     document.querySelectorAll('.ib-gtog .ib-g').forEach(b=>b.addEventListener('click',e=>{
       e.stopPropagation();
       const key=b.parentElement.getAttribute('data-ibkey');const g=b.getAttribute('data-g');
@@ -5668,6 +5680,8 @@ renderHealth();
   #imagesInner .ib-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:10px 14px;background:var(--bg-soft);border-radius:10px}
   #imagesInner .ib-baret{font-family:var(--mono);font-size:10px;color:var(--ink-2)}
   #imagesInner .ib-btn{font-family:var(--mono);font-size:10px;padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;margin-left:6px}
+  #imagesInner .ib-btn3{background:var(--warn);color:#fff;border-color:var(--warn);font-weight:500}
+  #imagesInner .ib-btn3:hover{background:#9c6e14;border-color:#9c6e14}
   #imagesInner .ib-cn{font-family:var(--mono);font-size:9px;color:var(--ink-3)}
   #imagesInner .ib-card{position:relative}
   #imagesInner .ib-gtog{position:absolute;top:5px;right:5px;display:flex;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.7);background:rgba(0,0,0,.35);backdrop-filter:blur(2px)}

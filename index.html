@@ -1198,7 +1198,7 @@
     </div>
   </div>
   <div class="actions" style="display:none">
-    <button class="btn-action" id="btnLoad" onclick="loadData()" disabled style="display:none">
+    <button class="btn-action" id="btnLoad" onclick="loadData()">
       <span class="arrow">↓</span> Load Data
     </button>
     <button class="btn-action" id="btnOverview" onclick="renderAll()" disabled>
@@ -1312,7 +1312,7 @@ const SEASON_DEFS = {
 // ─── 데이터 소스 (GitHub raw CSV + Google Sheet 게시 CSV) ─────────────────
 // 인스타는 용량이 커서 GitHub raw에서 로드. 무신사/WGSN은 Google Sheet 게시 CSV에서 로드.
 // 각 URL을 본인 것으로 채우면 대시보드가 자동으로 합쳐 읽음. 비우면('') 그 소스는 건너뜀.
-const IG_CSV_URL = '';   // GitHub raw: instagram_light.csv 의 raw URL
+const IG_CSV_URL = 'https://raw.githubusercontent.com/consumerfnf-eng/sns_trend_intelligence/main/instagram_light.csv';   // GitHub raw: instagram_light.csv 의 raw URL
 const MUSINSA_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR27wiGQaobIBn4cHFupGholL_gR9wuY-lVisXotF6qjPYqUHqhVO1HEnoJKkIA1BrAPDZwn4sF4I48/pub?output=csv';
 const WGSN_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTwf8afagHB9iAqxDJFJHb0XfYrLBbf7JqgkxjNleXBqAQnT4XKKgoU8FROcj0JLSlSrKtTfEHHhLMH/pub?output=csv';
 
@@ -1929,7 +1929,11 @@ function renderHealth(){
 
 // ─── LOAD DATA ──────────────────────────────────────────
 async function loadData(){
-  if(!STATE.connected){ toast('Connect first', true); return; }
+  // CSV 직접 로드 모드: Apps Script Connect 없이도 CSV URL이 있으면 진행
+  const hasCsvSource = (typeof IG_CSV_URL==='string'&&IG_CSV_URL) ||
+                       (typeof MUSINSA_CSV_URL==='string'&&MUSINSA_CSV_URL) ||
+                       (typeof WGSN_CSV_URL==='string'&&WGSN_CSV_URL);
+  if(!STATE.connected && !hasCsvSource){ toast('Connect first (또는 CSV URL 설정)', true); return; }
   progress(5, 'Loading…');
 
   // Reset
@@ -1940,38 +1944,26 @@ async function loadData(){
   STATE.data.news = [];
 
   try{
-    // Code.gs's getResults requires a month parameter. To get the whole season,
-    // we loop through each month in the season and aggregate.
-    const def = SEASON_DEFS[STATE.seasonCode];
-    const monthsToFetch = STATE.month
-      ? [STATE.month]
-      : def.months.filter(m => STATE.availableMonths.includes(m));
-
-    if(!monthsToFetch.length){
-      // fallback: try all available months
-      monthsToFetch.push(...STATE.availableMonths);
-    }
-
-    console.log('[loadData] fetching months:', monthsToFetch);
-
     let allItems = [];
-    for(let i = 0; i < monthsToFetch.length; i++){
-      const m = monthsToFetch[i];
-      progress(10 + (60 * i / monthsToFetch.length), `Loading ${m}…`);
-      try{
-        const r = await apiCall('getResults', { month: m });
-        let items = [];
-        if(r && r.ok){
-          items = r.data || r.items || [];
-        } else if(Array.isArray(r)){
-          items = r;
-        } else if(r && Array.isArray(r.data)){
-          items = r.data;
-        }
-        console.log(`[loadData] ${m}: ${items.length} items`);
-        allItems = allItems.concat(items);
-      }catch(e){
-        console.warn(`[loadData] ${m} failed:`, e.message);
+    // ── Apps Script(Sheet via Code.gs)가 연결돼 있으면 월별 데이터도 가져옴 ──
+    if(STATE.connected){
+      const def = SEASON_DEFS[STATE.seasonCode];
+      const monthsToFetch = STATE.month
+        ? [STATE.month]
+        : (def ? def.months.filter(m => STATE.availableMonths.includes(m)) : []);
+      if(!monthsToFetch.length && STATE.availableMonths) monthsToFetch.push(...STATE.availableMonths);
+      console.log('[loadData] fetching months:', monthsToFetch);
+      for(let i = 0; i < monthsToFetch.length; i++){
+        const m = monthsToFetch[i];
+        progress(10 + (50 * i / monthsToFetch.length), `Loading ${m}…`);
+        try{
+          const r = await apiCall('getResults', { month: m });
+          let items = [];
+          if(r && r.ok){ items = r.data || r.items || []; }
+          else if(Array.isArray(r)){ items = r; }
+          else if(r && Array.isArray(r.data)){ items = r.data; }
+          allItems = allItems.concat(items);
+        }catch(e){ console.warn(`[loadData] ${m} failed:`, e.message); }
       }
     }
 

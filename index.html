@@ -4934,9 +4934,6 @@ renderHealth();
     const show=(OV_CAT==='ALL')?cats:cats.filter(c=>c===OV_CAT);
     const LVLNAME={sub_category:'Category',sub2:'Item',detail:'Detail'};
     let h=`<div class="tg-head">Trend Graph${OV_CAT!=='ALL'?' — '+esc(OV_CAT):''}</div><div class="tg-sub">${LVLNAME[OV_LEVEL]||'Item'} · color · detail distribution${OV_CAT==='ALL'?' (all categories)':''}</div>`;
-    if(window.OV_ITEM&&window.OV_ITEM!=='ALL'){
-      h+=`<div style="margin:6px 0 2px;padding:6px 12px;background:rgba(184,130,26,.1);border:0.5px solid var(--warn);border-radius:8px;font-family:var(--mono);font-size:11px;display:inline-flex;align-items:center;gap:8px"><b style="color:var(--warn)">${esc(window.OV_ITEM)}</b> 만 필터 중 — 아래 디테일도 이 항목 기준 <span onclick="window.OV_ITEM='ALL';renderAll()" style="cursor:pointer;text-decoration:underline;margin-left:4px">✕ 해제</span></div>`;
-    }
     h+=`<div class="ov-levels"><span class="ov-lvllbl">Level</span>
       <span class="ov-lvl ${OV_LEVEL==='sub_category'?'on':''}" data-ovlvl="sub_category">Category</span>
       <span class="ov-lvl ${OV_LEVEL==='sub2'?'on':''}" data-ovlvl="sub2">Item</span>

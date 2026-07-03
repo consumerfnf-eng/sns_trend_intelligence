@@ -1210,8 +1210,7 @@
       <button class="chip" data-cat="OUTERWEAR">Outerwear</button>
       <button class="chip" data-cat="DRESS">Dress</button>
       <button class="chip" data-cat="BAG">Bag</button>
-      <button class="chip" data-cat="HAT">Hat</button>
-      <button class="chip" data-cat="ACC">Acc</button>
+      <button class="chip" data-cat="HAT">HAT/SHOE</button>
     </div>
   </div>
   <div class="ctrl-group">
@@ -3776,6 +3775,9 @@ renderHealth();
   window.outerLabel=function(r, base){
     let d={};try{d=JSON.parse((r&&r.details)||'{}');}catch(e){}
     const pick=v=>Array.isArray(v)?v[0]:v;
+    // "Other Jacket"/"Other Outer" 같은 Other 라벨 정리
+    base=String(base||'').replace(/^Other\s+/i,'').replace(/\bOther\s+/gi,'');
+    if(/^outer$|^$/i.test(base.trim()))base='Jacket';
     const bn=String(base||'').toLowerCase();
     // Anchor에 이미 든 단어는 디테일에서 반복 금지
     const inBase=w=>bn.includes(String(w).toLowerCase());
@@ -3873,9 +3875,15 @@ renderHealth();
       if(parts.length<1&&hemL&&/ankle|crop|capri/i.test(hemL))parts.push(clean(hemL));
       if(parts.length<1&&rise&&/high|low/i.test(rise)&&!isDef(rise,['mid']))parts.push(/high/i.test(rise)?'High-rise':'Low-rise');
     } else if(isSkirt){
-      // Skirt Detail = shape/material/pattern + length anchor
-      const sil=pick(d.silhouette);
-      if(sil&&!isDef(sil,['none','regular'])&&!inBase(clean(sil)))parts.push(clean(sil));
+      // Skirt Detail (v3) = Shape/Material/Construction/Pattern + Length Anchor
+      // shape: silhouette 축 우선, 없으면 원본 sub2 이름에서 추출
+      let sil=pick(d.silhouette);
+      let origShape=null;
+      const rawS2=String((r&&r.sub2)||'');
+      const sm=rawS2.match(/(A-line|Pencil|Column|Flare|Balloon|Bubble|Pleated|Wrap|Tiered|Ruffle|Cargo|Slit|Draped|Mermaid|Trumpet)/i);
+      if(sm)origShape=sm[1];
+      if(sil&&!isDef(sil,['none','regular','standard'])&&!inBase(clean(sil)))parts.push(clean(sil));
+      else if(origShape&&!inBase(origShape))parts.push(origShape==='A-line'?'A-line':origShape);
       if(parts.length<1&&mat&&!isDef(mat,['cotton','other','unknown','none','polyester'])&&!inBase(mat))parts.push(mat);
       if(parts.length<1&&pat&&!isDef(pat,['solid','none'])&&!inBase(pat))parts.push(String(pat).split('/')[0].trim());
     } else if(isLeggings){
@@ -3885,20 +3893,34 @@ renderHealth();
       if(parts.length<1&&rise&&/high/i.test(rise))parts.push('High-rise');
       if(parts.length<1&&hemS&&/slit/i.test(hemS))parts.push('Slit Hem');
     } else {
-      // Pants/Shorts Detail = fit/leg → pants_detail → functional → 마지막에 material(Unknown 제외)
+      // Pants Detail (v3): fit/leg → construction(Pintuck)/functional → hem/rise/material/pattern
+      // Cotton/Other/Regular/Full/Open/Mid는 항상 제거
+      let con2='';try{const dd=JSON.parse((r&&r.details)||'{}');let cv=dd.construction;con2=String(Array.isArray(cv)?cv[0]:cv||'');}catch(e){}
       // 1. Fit / Leg Shape
       let fl=null;
-      if(leg&&!isDef(leg,['regular','standard','straight-leg'])){fl=clean(leg);}
-      else if(fit&&!isDef(fit,['regular','standard'])){fl=clean(fit);}
+      if(leg&&!isDef(leg,['regular','standard','straight-leg','full','mid'])){fl=clean(leg);}
+      else if(fit&&!isDef(fit,['regular','standard','full','mid'])){fl=clean(fit);}
       if(fl&&!inBase(fl.toLowerCase().split(' ')[0]))parts.push(fl);
-      // 2. pants_detail (Pintuck 등)
-      if(parts.length<1&&pdet&&!isDef(pdet,['none','basic','standard']))parts.push(String(pdet).split('/')[0].trim());
+      // 2. Construction (Pin Tuck→Pintuck) + pants_detail
+      if(parts.length<1){
+        let pt=pdet||con2;
+        if(pt&&!isDef(pt,['none','basic','standard','regular','wrap'])){
+          const s=String(pt).split('/')[0].trim();
+          if(/pin.?tuck|tuck/i.test(s))parts.push('Pintuck');
+          else if(/pleat/i.test(s))parts.push('Pleated');
+          else if(/cargo/i.test(s))parts.push('Cargo');
+          else if(!/^(mid|full|open|none|basic)$/i.test(s))parts.push(s);
+        }
+      }
       // 3. Functional
       if(parts.length<1&&func&&/cargo|track|workwear/i.test(func)&&!inBase(func))parts.push(func);
-      // 4. Pattern
+      // 4. Hem / Rise
+      if(parts.length<1&&hemL&&/ankle|crop|capri/i.test(hemL)&&!isDef(hemL,['full','regular']))parts.push(clean(hemL));
+      if(parts.length<1&&rise&&/high|low/i.test(rise)&&!isDef(rise,['mid']))parts.push(/high/i.test(rise)?'High-rise':'Low-rise');
+      // 5. Pattern
       if(parts.length<1&&pat&&!isDef(pat,['solid','none'])&&!inBase(pat))parts.push(String(pat).split('/')[0].trim());
-      // 5. material — 단, Cotton/Other/Unknown/없음은 절대 안 붙임 (맨 뒤 순위 + Unknown 제외)
-      if(parts.length<1&&mat&&!isDef(mat,['cotton','other','unknown','none','polyester','woven'])&&!inBase(mat))parts.push(mat);
+      // 6. Material — Cotton/Other/Unknown/Regular은 절대 안 붙임
+      if(parts.length<1&&mat&&!isDef(mat,['cotton','other','unknown','none','polyester','woven','regular'])&&!inBase(mat))parts.push(mat);
     }
     const detail=parts.length?parts[0]:'Basic';
     if(detail==='Basic'&&window.HIDE_BASIC)return null;
@@ -4834,10 +4856,85 @@ renderHealth();
           s2='Basic Jeans';
         }
       }
+      // ── Pants Item Level 정리 (분류체계 v3 4-1/4-2): fit·Cotton·Other 제거, Anchor만 ──
+      // Denim/Jeans/Shorts/Skirt/Legging 아닌 순수 pants일 때만
+      if(/pants?$/i.test(s2)&&!/jeans|denim|short|skirt|legging/i.test(s2)){
+        const low=s2.toLowerCase();
+        if(/cargo/.test(low))s2='Cargo Pants';
+        else if(/track/.test(low))s2='Track Pants';
+        else if(/sweat|fleece/.test(low))s2='Sweatpants';
+        else if(/corduroy|cord/.test(low))s2='Corduroy Pants';
+        else if(/workwear|carpenter|utility/.test(low))s2='Workwear Pants';
+        else if(/knit/.test(low))s2='Knit Pants';
+        else if(/leather/.test(low))s2='Leather Pants';
+        else if(/tailored|trouser|slacks/.test(low))s2='Tailored Pants';
+        else s2='Pants';   // Wide/Straight/Cotton/Other/Regular/Full → 전부 Pants
+      }
+      // ── Skirt Item Level 정리 (분류체계 v3 7-1): length만 Anchor, shape 제거 ──
+      if(/skirt$/i.test(s2)&&!/short|pants/i.test(s2)){
+        const low=s2.toLowerCase();
+        if(/skort/.test(low))s2='Skort';
+        else if(/micro/.test(low))s2='Mini Skirt';   // Micro도 Mini로 흡수
+        else if(/mini/.test(low))s2='Mini Skirt';
+        else if(/midi|knee/.test(low))s2='Midi Skirt';  // Knee는 Midi군으로
+        else if(/maxi|long/.test(low))s2='Maxi Skirt';
+        else s2='Skirt';   // length 불명
+      }
+      // ── Shorts Item Level (분류체계 v3: shorts type) ──
+      if(/shorts?$/i.test(s2)&&!/sleeve/i.test(s2)){
+        const low=s2.toLowerCase();
+        let mat='';try{const dd=JSON.parse(r.details||'{}');let mv=dd.material;mat=String(Array.isArray(mv)?mv[0]:mv||'').toLowerCase();}catch(e){}
+        let fnc='';try{const dd=JSON.parse(r.details||'{}');let fv=dd.functional_style;fnc=String(Array.isArray(fv)?fv[0]:fv||'').toLowerCase();}catch(e){}
+        if(/biker/.test(low))s2='Biker Shorts';
+        else if(/bermuda/.test(low))s2='Bermuda Shorts';
+        else if(/cargo/.test(low)||/cargo/.test(fnc))s2='Cargo Shorts';
+        else if(/denim/.test(low)||/denim/.test(mat))s2='Denim Shorts';
+        else if(/sweat|fleece/.test(low)||/sweat|fleece/.test(mat))s2='Sweat Shorts';
+        else if(/track/.test(low)||/track/.test(fnc))s2='Track Shorts';
+        else if(/knit/.test(low)||/knit/.test(mat))s2='Knit Shorts';
+        else if(/tailored|suit/.test(low))s2='Tailored Shorts';
+        else s2='Shorts';
+      }
+      // ── Leggings Item Level (분류체계 v3: leggings type) ──
+      if(/legging/i.test(s2)){
+        const low=s2.toLowerCase();
+        if(/flare/.test(low))s2='Flared Leggings';
+        else if(/capri/.test(low))s2='Capri Leggings';
+        else if(/stirrup/.test(low))s2='Stirrup Leggings';
+        else s2='Leggings';
+      }
+      // ── Dress Item Level (분류체계: dress_type). dress_type 없으면 silhouette/strap으로 유추 ──
+      if((cRaw==='Onepiece'||/onepiece/i.test(e.cat||r.category||''))&&/^dress$/i.test(s2)){
+        let dd={};try{dd=JSON.parse(r.details||'{}');}catch(e){}
+        const pv=k=>{let v=dd[k];return String(Array.isArray(v)?v[0]:v||'');};
+        const dt=pv('dress_type');
+        if(dt){s2=dt.replace(/A-line Flare Dress/,'A-line / Flare Dress').replace(/Tailored Blazer Dress/,'Tailored / Blazer Dress');if(/sweater/i.test(s2))s2='Knit Dress';}
+        else {
+          // 유추: strap → Slip/Tank, silhouette → Shift/Bodycon/A-line, collar → Shirt
+          const sil=pv('silhouette').toLowerCase(), strap=pv('strap_style').toLowerCase(), col=pv('neckline').toLowerCase(), mat=pv('material').toLowerCase();
+          if(/shirt collar/.test(col))s2='Shirt Dress';
+          else if(/knit/.test(mat))s2='Knit Dress';
+          else if(/camisole|slip/.test(strap))s2='Slip Dress';
+          else if(/tank/.test(strap))s2='Tank Dress';
+          else if(/sheath|bodycon/.test(sil))s2='Bodycon Dress';
+          else if(/shift/.test(sil))s2='Shift Dress';
+          else if(/a-line|fit-and-flare|flare/.test(sil))s2='A-line / Flare Dress';
+          else s2='Dress';
+        }
+      }
       // ── Layered T 승격: T-shirt인데 construction=Layered/Mock-layer면 Item을 Layered T로 ──
       if(/short sleeve t|long sleeve t|t-shirt/i.test(s2)){
         let con='';try{const dd=JSON.parse(r.details||'{}');let cv=dd.construction;con=String(Array.isArray(cv)?cv[0]:cv||'').toLowerCase();}catch(e){}
         if(/layered|mock-layer/.test(con))s2='Layered T';
+      }
+      // ── 신발 sub_category 보강 (Category 레벨용, 데이터에 비어있어서) ──
+      if(!s1 || s1==='' || s1==='?'){
+        const _sl=String(s2||'').toLowerCase();
+        if(/sneaker|running/.test(_sl))s1='Sneakers';
+        else if(/boot|chelsea|chunky/.test(_sl))s1='Boots';
+        else if(/loafer|heel|pump|mary jane|ballet|flat|derby|oxford|mule|clog/.test(_sl))s1='Flat / Heels';
+        else if(/sandal|slide|espadrille/.test(_sl))s1='Sandals / Slides';
+        else if(/shoe|footwear/.test(_sl))s1='Other Shoes';
       }
     }
     return {
@@ -4850,10 +4947,12 @@ renderHealth();
           if(/sweat|cotton|jersey/.test(mat))nc='Top';
           else if(/knit|fleece|polyester|nylon|shell|wool/.test(mat))nc='Outer';
         }
-        // ACC 탭은 신발 전용 → 신발 sub_category가 아니면 ACC에서 제외(null 처리)
+        // ACC 탭은 신발 전용 → sub2가 신발류가 아니면 제외 (sub_category가 비어도 sub2로 판단)
         if(nc==='ACC'){
-          const shoeSubs=['Sneakers','Boots','Flat / Heels','Sandals / Slides'];
-          if(!shoeSubs.includes(s1))return null;  // 스카프/벨트/장갑 등 비신발 ACC 제외
+          const _shoe=String(s2||'').toLowerCase();
+          const isShoe=/sneaker|boot|loafer|heel|pump|sandal|slide|mule|clog|flat|mary jane|ballet|shoe|derby|oxford|espadrille|running/.test(_shoe)
+                     || ['Sneakers','Boots','Flat / Heels','Sandals / Slides'].includes(s1);
+          if(!isShoe)return null;  // 스카프/벨트/장갑 등 비신발 ACC 제외
         }
         return nc;
       })(),
@@ -5139,11 +5238,11 @@ renderHealth();
     const T=aggregate().slice(0,40);
     const srcNames=[...loadedSources()].map(s=>(SRCMETA[s]||['',s])[1]).filter(Boolean);
     const srcLine=srcNames.length?' · data: '+[...new Set(srcNames)].join(', '):'';
-    let h=`<div class="ov-head">Overview${OV_CAT!=='ALL'?' — '+esc(OV_CAT):''}</div><div class="ov-sub">${OV_CAT==='ALL'?'All sources combined':esc(OV_CAT)} · ${T.length} trends · engagement = posts${esc(srcLine)}</div>`;
+    let h=`<div class="ov-head">Overview${OV_CAT!=='ALL'?' — '+esc(OV_CAT==='HAT'?'HAT/SHOE':OV_CAT):''}</div><div class="ov-sub">${OV_CAT==='ALL'?'All sources combined':esc(OV_CAT==='HAT'?'HAT/SHOE':OV_CAT)} · ${T.length} trends · engagement = posts${esc(srcLine)}</div>`;
     h+=`<div class="ov-levels"><span class="ov-lvllbl">Level</span>
       <span class="ov-lvl ${OV_LEVEL==='sub_category'?'on':''}" data-ovlvl="sub_category">Category</span>
       <span class="ov-lvl ${OV_LEVEL==='sub2'?'on':''}" data-ovlvl="sub2">Item</span>
-      <span class="ov-lvl ${OV_LEVEL==='detail'?'on':''}" data-ovlvl="detail">Detail</span></div>`;
+      ${(OV_CAT==='HAT'||OV_CAT==='ACC')?'':`<span class="ov-lvl ${OV_LEVEL==='detail'?'on':''}" data-ovlvl="detail">Detail</span>`}</div>`;
     h+=subChipsHTML();
     h+=`<table class="ovt"><thead><tr><th style="width:30px"></th><th>Trend</th><th style="width:130px">Trajectory</th><th style="width:170px">Trend Cast</th><th style="width:120px">Growth Rate</th><th style="width:90px">Engagement</th><th style="width:60px">Flags</th></tr></thead><tbody>`;
     // 트렌드별 사진 인덱스 (무신사/SNS 분리)
@@ -5241,17 +5340,17 @@ renderHealth();
     const present=new Set(FILES.flatMap(f=>f.rows.map(r=>normCat(r.category)).filter(Boolean)));
     const cats=CAT_ORDER.filter(c=>present.has(c));
     if(!cats.length)return;
-    const show=(OV_CAT==='ALL')?cats:cats.filter(c=>c===OV_CAT);
+    const show=(OV_CAT==='ALL')?cats:(OV_CAT==='HAT')?cats.filter(c=>c==='HAT'||c==='ACC'):cats.filter(c=>c===OV_CAT);
     const LVLNAME={sub_category:'Category',sub2:'Item',detail:'Detail'};
-    let h=`<div class="tg-head">Trend Graph${OV_CAT!=='ALL'?' — '+esc(OV_CAT):''}</div><div class="tg-sub">${LVLNAME[OV_LEVEL]||'Item'} · color · detail distribution${OV_CAT==='ALL'?' (all categories)':''}</div>`;
+    let h=`<div class="tg-head">Trend Graph${OV_CAT!=='ALL'?' — '+esc(OV_CAT==='HAT'?'HAT/SHOE':OV_CAT):''}</div><div class="tg-sub">${LVLNAME[OV_LEVEL]||'Item'} · color · detail distribution${OV_CAT==='ALL'?' (all categories)':''}</div>`;
     // Basic 숨김 토글 (Outer/Top/Bottom Detail 레벨에서 노출)
     if((OV_CAT==='OUTERWEAR'||OV_CAT==='OUTER'||OV_CAT==='TOP'||OV_CAT==='BOTTOM')&&OV_LEVEL==='detail'){
-      h+=`<div style="margin:4px 0 2px"><label style="font-family:var(--mono);font-size:10px;letter-spacing:.05em;cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:var(--ink-2)"><input type="checkbox" ${window.HIDE_BASIC?'checked':''} onchange="window.HIDE_BASIC=this.checked;renderAll()" style="cursor:pointer"> Basic 숨기기 (트렌드 디테일만)</label></div>`;
+      h+=`<div style="margin:4px 0 2px"><label style="font-family:var(--mono);font-size:10px;letter-spacing:.05em;cursor:pointer;display:inline-flex;align-items:center;gap:5px;color:var(--ink-2)"><input type="checkbox" ${window.HIDE_BASIC?'checked':''} onchange="window.HIDE_BASIC=this.checked;(window.__renderV12||window.renderAll||renderAll)()" style="cursor:pointer"> Basic 숨기기 (트렌드 디테일만)</label></div>`;
     }
     h+=`<div class="ov-levels"><span class="ov-lvllbl">Level</span>
       <span class="ov-lvl ${OV_LEVEL==='sub_category'?'on':''}" data-ovlvl="sub_category">Category</span>
       <span class="ov-lvl ${OV_LEVEL==='sub2'?'on':''}" data-ovlvl="sub2">Item</span>
-      <span class="ov-lvl ${OV_LEVEL==='detail'?'on':''}" data-ovlvl="detail">Detail</span></div>`;
+      ${(OV_CAT==='HAT'||OV_CAT==='ACC')?'':`<span class="ov-lvl ${OV_LEVEL==='detail'?'on':''}" data-ovlvl="detail">Detail</span>`}</div>`;
     h+=subChipsHTML();
     const qbars=(entries,colorFn,clickCat)=>{
       if(!entries.length)return '<span class="gr">—</span>';
@@ -5476,7 +5575,7 @@ renderHealth();
     h+=`<div class="ov-levels"><span class="ov-lvllbl">Level</span>
       <span class="ov-lvl ${OV_LEVEL==='sub_category'?'on':''}" data-ovlvl="sub_category">Category</span>
       <span class="ov-lvl ${OV_LEVEL==='sub2'?'on':''}" data-ovlvl="sub2">Item</span>
-      <span class="ov-lvl ${OV_LEVEL==='detail'?'on':''}" data-ovlvl="detail">Detail</span></div>`;
+      ${(OV_CAT==='HAT'||OV_CAT==='ACC')?'':`<span class="ov-lvl ${OV_LEVEL==='detail'?'on':''}" data-ovlvl="detail">Detail</span>`}</div>`;
     h+=subChipsHTML();
     h+=`<table class="ovt"><thead><tr><th style="width:30px"></th><th>Trend</th><th style="width:90px">Category</th><th style="width:150px">Source</th><th style="width:90px">Engagement</th><th style="width:70px">Photos</th></tr></thead><tbody>`;
     T.forEach((t,i)=>{
@@ -5791,6 +5890,8 @@ renderHealth();
     OV_CAT=c.getAttribute('data-cat')||'ALL';
     OV_SUB='ALL';   // 카테고리 바뀌면 2차필터 초기화
     window.OV_ITEM='ALL';   // 아이템 필터도 초기화
+    // HAT/ACC는 Detail 레벨 없음 → detail이면 item으로
+    if((OV_CAT==='HAT'||OV_CAT==='ACC')&&OV_LEVEL==='detail'){OV_LEVEL='sub2';window.OV_LEVEL='sub2';}
     document.querySelectorAll('#catChips .chip').forEach(x=>x.classList.toggle('on',x===c));
     if(hasData())renderAll();
     if(window.PROP_RENDER)window.PROP_RENDER();

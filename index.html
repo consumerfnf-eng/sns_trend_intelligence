@@ -3773,7 +3773,7 @@ renderHealth();
   }
   // ── OUTERWEAR Detail 라벨 (분류체계 v2: Anchor + Dominant Detail, 없으면 Basic) ──
   window.HIDE_BASIC = window.HIDE_BASIC || false;
-  function outerLabel(r, base){
+  window.outerLabel=function(r, base){
     let d={};try{d=JSON.parse((r&&r.details)||'{}');}catch(e){}
     const pick=v=>Array.isArray(v)?v[0]:v;
     const bn=String(base||'').toLowerCase();
@@ -3843,7 +3843,7 @@ renderHealth();
     return detail+' '+base;
   }
   // ── BOTTOM Detail 라벨 (분류체계 v3: Denim=Wash 우선, Pants=fit/leg, material Unknown 뒤로) ──
-  function bottomLabel(r, base){
+  window.bottomLabel=function(r, base){
     let d={};try{d=JSON.parse((r&&r.details)||'{}');}catch(e){}
     const pick=v=>Array.isArray(v)?v[0]:v;
     const bn=String(base||'').toLowerCase();
@@ -3905,7 +3905,7 @@ renderHealth();
     return detail+' '+base;
   }
   // ── TOP Detail 라벨 (분류체계 v2: Anchor + Dominant Detail, Crew/Cotton/Regular=Basic) ──
-  function topLabel(r, base){
+  window.topLabel=function(r, base){
     let d={};try{d=JSON.parse((r&&r.details)||'{}');}catch(e){}
     const pick=v=>Array.isArray(v)?v[0]:v;
     const bn=String(base||'').toLowerCase();
@@ -3994,12 +3994,12 @@ renderHealth();
     // ── DRESS: silhouette + length 조합 (Detail 레벨) ──
     // ── OUTER: 분류체계 v2 (Anchor + Dominant Detail) ──
     if(cat==='OUTER'||cat==='OUTERWEAR'){
-      const ol=outerLabel(r, base);
+      const ol=window.outerLabel(r, base);
       return ol;   // null이면 Basic 숨김 상태 → 상위에서 제외됨
     }
     // ── TOP: 분류체계 v2 (Anchor + Dominant Detail) ──
     if(cat==='TOP'){
-      const tl=topLabel(r, base);
+      const tl=window.topLabel(r, base);
       return tl;
     }
     if(cat==='DRESS'||cat==='ONEPIECE'){
@@ -4042,7 +4042,7 @@ renderHealth();
     }
     // ── BOTTOM 전체: 분류체계 v3 (Denim=Wash우선, Pants=fit/leg, material Unknown 제외) ──
     if(cat==='BOTTOM'){
-      const bl=bottomLabel(r, base);
+      const bl=window.bottomLabel(r, base);
       return bl;
     }
     if(bn.includes('skirt')){
@@ -4498,12 +4498,12 @@ renderHealth();
     // ── DRESS: silhouette + length 조합 (Detail 레벨) ──
     // ── OUTER: 분류체계 v2 (Anchor + Dominant Detail) ──
     if(cat==='OUTER'||cat==='OUTERWEAR'){
-      const ol=outerLabel(r, base);
+      const ol=window.outerLabel(r, base);
       return ol;   // null이면 Basic 숨김 상태 → 상위에서 제외됨
     }
     // ── TOP: 분류체계 v2 (Anchor + Dominant Detail) ──
     if(cat==='TOP'){
-      const tl=topLabel(r, base);
+      const tl=window.topLabel(r, base);
       return tl;
     }
     if(cat==='DRESS'||cat==='ONEPIECE'){
@@ -4543,7 +4543,7 @@ renderHealth();
     // 스커트: 모양(item명) + 디테일(주름/러플/턱) + 소재, 2개까지
     // ── BOTTOM 전체: 분류체계 v3 (Denim=Wash우선, Pants=fit/leg, material Unknown 제외) ──
     if(cat==='BOTTOM'){
-      const bl=bottomLabel(r, base);
+      const bl=window.bottomLabel(r, base);
       return bl;
     }
     if(bn.includes('skirt')){

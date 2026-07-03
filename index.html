@@ -4961,6 +4961,7 @@ renderHealth();
       sub2: s2
     };
   }
+  window.eff=eff;   // 디버깅용 노출
   function normGenderVal(g){g=String(g||'').trim().toLowerCase();if(!g)return '';if(/여|women|woman|female/.test(g)||g==='w'||g==='f')return '여자';if(/남|men|man|male/.test(g)||g==='m')return '남자';return '';}
   function rowGender(r){
     const ov=GENDER_OV[rowKey(r)];if(ov)return normGenderVal(ov)||ov;   // 사용자 수정분 우선

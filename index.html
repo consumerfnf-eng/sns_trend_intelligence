@@ -1212,6 +1212,11 @@
       <button class="chip" data-cat="BAG">Bag</button>
       <button class="chip" data-cat="HAT">HAT/SHOE</button>
     </div>
+    <div class="chips" id="hatsubChips" style="display:none;margin-top:8px">
+      <button class="chip on" data-hatsub="ALL">All</button>
+      <button class="chip" data-hatsub="HAT">Hat</button>
+      <button class="chip" data-hatsub="SHOE">Shoe</button>
+    </div>
   </div>
   <div class="ctrl-group">
     <span class="ctrl-label">Gender</span>
@@ -1365,6 +1370,7 @@ const STATE = {
   apiBase: '',
   connected: false,
   category: 'ALL',
+  hatsub: 'ALL',          // HAT/SHOE 서브탭 (ALL/HAT/SHOE)
   source: 'all',
   seasonCode: '26SS',     // current season (matches default 'on' chip)
   month: '',              // optional sub-filter inside season
@@ -2186,6 +2192,22 @@ document.querySelectorAll('#catChips .chip').forEach(c => {
     document.querySelectorAll('#catChips .chip').forEach(x => x.classList.remove('on'));
     c.classList.add('on');
     STATE.category = c.getAttribute('data-cat');
+    // HAT/SHOE 탭이면 [All][Hat][Shoe] 서브탭 표시, 아니면 숨김 + 초기화
+    const hsub=document.getElementById('hatsubChips');
+    if(hsub){
+      if(STATE.category==='HAT'){hsub.style.display='flex';}
+      else{hsub.style.display='none';STATE.hatsub='ALL';
+        hsub.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x.getAttribute('data-hatsub')==='ALL'));}
+    }
+    if(STATE.loaded) renderAll();
+  });
+});
+// HAT/SHOE 서브탭 클릭
+document.querySelectorAll('#hatsubChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('#hatsubChips .chip').forEach(x => x.classList.remove('on'));
+    c.classList.add('on');
+    STATE.hatsub = c.getAttribute('data-hatsub');
     if(STATE.loaded) renderAll();
   });
 });
@@ -2281,7 +2303,7 @@ function renderOverview(){
   // Filter by category — STRICT, case-insensitive
   const filtered = STATE.category === 'ALL'
     ? trends
-    : trends.filter(t => (t.category || '').toUpperCase() === STATE.category);
+    : trends.filter(t => catMatch(t.category));
 
   // Sort by mention count desc
   filtered.sort((a, b) => b.mentions - a.mentions);
@@ -3063,6 +3085,18 @@ function calcConfidence(){
 }
 
 // ─── IMAGE BOARD ────────────────────────────────────────
+// ── 카테고리 매칭 헬퍼: HAT 탭이면 HAT+ACC 둘 다, STATE.hatsub(ALL/HAT/SHOE) 반영 ──
+function catMatch(rawCat){
+  const c=String(rawCat||'').toUpperCase();
+  if(STATE.category==='ALL')return true;
+  if(STATE.category==='HAT'){
+    const hs=STATE.hatsub||'ALL';
+    if(hs==='HAT')return c==='HAT';
+    if(hs==='SHOE')return c==='ACC';
+    return c==='HAT'||c==='ACC';   // ALL: 둘 다
+  }
+  return c===STATE.category;
+}
 function renderImageBoard(){
   const inner = $('imagesInner');
   if(!STATE.loaded){
@@ -3095,10 +3129,7 @@ function renderImageBoard(){
   // Filter by category
   const filtered = STATE.category === 'ALL'
     ? items
-    : items.filter(i => {
-        const cat = (i.category || i.mainCategory || '').toUpperCase();
-        return cat === STATE.category;
-      });
+    : items.filter(i => catMatch(i.category || i.mainCategory));
 
   // 시그널 집계 (공통 함수)
   const groups = aggregateBySubcategory(filtered);
@@ -3183,7 +3214,7 @@ function renderKeywords(){
   const allItems = [].concat(D.instagram, D.wgsn, D.ranking, D.xhs, D.news);
   const filtered = STATE.category === 'ALL'
     ? allItems
-    : allItems.filter(i => (i.category || i.mainCategory || '').toUpperCase() === STATE.category);
+    : allItems.filter(i => catMatch(i.category || i.mainCategory));
 
   // ── Sub category 별 시그널 집계 (공통 함수)
   const subGroups = aggregateBySubcategory(filtered);
@@ -3419,9 +3450,7 @@ function extractFacets(){
 
   // category filter
   const matchCat = (it) => {
-    if(STATE.category === 'ALL') return true;
-    const c = (it.category || it.mainCategory || '').toUpperCase();
-    return c === STATE.category;
+    return catMatch(it.category || it.mainCategory);
   };
 
   const colorMap = new Map();    // name -> {count, hex}

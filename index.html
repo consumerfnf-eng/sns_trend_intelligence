@@ -1212,11 +1212,6 @@
       <button class="chip" data-cat="BAG">Bag</button>
       <button class="chip" data-cat="HAT">HAT/SHOE</button>
     </div>
-    <div class="chips" id="hatsubChips" style="display:none;margin-top:8px">
-      <button class="chip on" data-hatsub="ALL">All</button>
-      <button class="chip" data-hatsub="HAT">Hat</button>
-      <button class="chip" data-hatsub="SHOE">Shoe</button>
-    </div>
   </div>
   <div class="ctrl-group">
     <span class="ctrl-label">Gender</span>
@@ -2192,22 +2187,7 @@ document.querySelectorAll('#catChips .chip').forEach(c => {
     document.querySelectorAll('#catChips .chip').forEach(x => x.classList.remove('on'));
     c.classList.add('on');
     STATE.category = c.getAttribute('data-cat');
-    // HAT/SHOE 탭이면 [All][Hat][Shoe] 서브탭 표시, 아니면 숨김 + 초기화
-    const hsub=document.getElementById('hatsubChips');
-    if(hsub){
-      if(STATE.category==='HAT'){hsub.style.display='flex';}
-      else{hsub.style.display='none';STATE.hatsub='ALL';
-        hsub.querySelectorAll('.chip').forEach(x=>x.classList.toggle('on',x.getAttribute('data-hatsub')==='ALL'));}
-    }
-    if(STATE.loaded) renderAll();
-  });
-});
-// HAT/SHOE 서브탭 클릭
-document.querySelectorAll('#hatsubChips .chip').forEach(c => {
-  c.addEventListener('click', () => {
-    document.querySelectorAll('#hatsubChips .chip').forEach(x => x.classList.remove('on'));
-    c.classList.add('on');
-    STATE.hatsub = c.getAttribute('data-hatsub');
+    if(STATE.category!=='HAT'){STATE.hatsub='ALL';window.OV_HATSUB='ALL';}
     if(STATE.loaded) renderAll();
   });
 });
@@ -3194,7 +3174,7 @@ function renderImageBoard(){
   html += '</div>';
   inner.innerHTML = html;
 }
-
+window.renderImageBoard=renderImageBoard;
 
 // ─── KEYWORD ANALYSIS — Sub-cat Expandable (top) + Color/Material/Fit (bottom) ──
 function renderKeywords(){
@@ -5936,11 +5916,15 @@ renderHealth();
     window.OV_ITEM='ALL';   // Sub 바꾸면 아이템 필터 해제
     if(hasData())renderAll();if(window.PROP_RENDER)window.PROP_RENDER();
   });
-  // HAT/SHOE 서브탭 (All/Hat/Shoe)
+  // HAT/SHOE 서브탭 (All/Hat/Shoe) — OV_HATSUB와 STATE.hatsub 동기화 (전 탭 공통)
   document.addEventListener('click',e=>{
     const el=e.target.closest('[data-ovhatsub]');if(!el)return;
-    window.OV_HATSUB=el.getAttribute('data-ovhatsub')||'ALL';
-    if(hasData())renderAll();if(window.PROP_RENDER)window.PROP_RENDER();
+    const v=el.getAttribute('data-ovhatsub')||'ALL';
+    window.OV_HATSUB=v;
+    if(typeof STATE!=='undefined')STATE.hatsub=v;   // Image Board/SNS도 따라오게
+    if(hasData())renderAll();
+    if(typeof window.renderImageBoard==='function')window.renderImageBoard();   // 전역 Image Board 갱신
+    if(window.PROP_RENDER)window.PROP_RENDER();
   });
   document.addEventListener('click',e=>{
     const x=e.target.closest('[data-rmfile]');if(!x)return;

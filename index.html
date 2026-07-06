@@ -4520,6 +4520,13 @@ renderHealth();
   .ovt .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
   .ovt .gr{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
   .ovt .eng{font-family:var(--mono);font-size:13px}
+  .ovt .gr-cell{font-family:var(--mono);font-size:12px}
+  .gr-up{color:#1a9d5a;font-weight:600}
+  .gr-down{color:#d0433c;font-weight:600}
+  .gr-flat{color:var(--ink-3)}
+  .gr-new{color:#7a5cff;font-weight:700;font-size:10px;letter-spacing:.5px}
+  .gr-na{color:var(--ink-3);opacity:.5}
+  .sns-grinfo{font-size:11px;color:var(--ink-3);margin:10px 2px 0;line-height:1.5}
   .tg-cats{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 20px}
   .tg-cat{font-family:var(--mono);font-size:11px;padding:5px 13px;border:1px solid var(--line);border-radius:4px;cursor:pointer}
   .tg-cat.on{background:#9A7B5A;color:#fff;border-color:#9A7B5A}
@@ -4920,7 +4927,7 @@ renderHealth();
   // 사진별 수정(제외/분류) 저장: key -> {x:true=제외, cat, sub1, sub2}
   window.EDIT_OV=window.EDIT_OV||{};
   const EDIT_OV=window.EDIT_OV;
-  const TAXONOMY={"Outer": {"Jacket": ["Leather Jacket", "Denim Jacket", "Suede Jacket", "Bomber Jacket", "Blazer", "Tailored Jacket", "Biker / Moto Jacket", "Trucker Jacket", "Jacket"], "Padding": ["Puffer Jacket", "Down Jacket", "Padded Jacket", "Quilted Jacket", "Puffer Coat", "Down Coat", "Padding Jacket"], "Coat": ["Wool Coat", "Tailored Coat", "Trench Coat", "Long Coat", "Peacoat", "Duffle Coat", "Wrap Coat", "Coat"], "Active": ["Windbreaker", "Anorak", "Shell Jacket", "Track Jacket", "Rain Jacket", "Fleece Jacket", "Active Jacket"], "Fur / Heavy": ["Fur Coat", "Fur Jacket", "Faux Fur Coat", "Shearling Jacket", "Shearling Coat", "Teddy Coat", "Heavy Coat"], "Vest": ["Down Vest", "Padded Vest", "Quilted Vest", "Fleece Vest", "Fur Vest", "Leather Vest", "Tailored Vest", "Utility Vest", "Vest"]}, "Top": {"Sweat / Hood": ["Hoodie", "Sweatshirts (MTM)", "Half-zip Sweat"], "T-shirts": ["Short Sleeve T", "Long Sleeve T", "Polo Shirt", "Henley"], "Shirts / Blouse": ["Shirts", "Blouse", "Tunic"], "Knitwear": ["Sweater / Knit Top", "Cardigan", "Sweater Zip-up", "Vest", "Summer Knit", "Twin-set", "Polo Knit", "Turtleneck / Mock-neck"], "Tank / Bra top": ["Sleeveless Tank", "Camisole", "Halter Neck Top", "Bra Top", "Tube Top", "Square Neck Tank", "U-neck Tank", "V-neck Tank"]}, "Bottom": {"Pants": ["Wide Cotton Pants", "Wide Sweat Pants", "Wide Nylon Pants", "Wide Corduroy Pants", "Wide Linen Pants", "Wide Chino Pants", "Baggy Cotton Pants", "Baggy Sweat Pants", "Baggy Nylon Pants", "Baggy Corduroy Pants", "Baggy Linen Pants", "Baggy Chino Pants", "Straight Cotton Pants", "Straight Sweat Pants", "Straight Nylon Pants", "Straight Corduroy Pants", "Straight Linen Pants", "Straight Chino Pants", "Tapered Cotton Pants", "Tapered Sweat Pants", "Tapered Nylon Pants", "Tapered Corduroy Pants", "Tapered Linen Pants", "Tapered Chino Pants", "Skinny Cotton Pants", "Skinny Sweat Pants", "Skinny Nylon Pants", "Skinny Corduroy Pants", "Skinny Linen Pants", "Skinny Chino Pants", "Barrel Cotton Pants", "Barrel Sweat Pants", "Barrel Nylon Pants", "Barrel Corduroy Pants", "Barrel Linen Pants", "Barrel Chino Pants", "Flare Cotton Pants", "Flare Sweat Pants", "Flare Nylon Pants", "Flare Corduroy Pants", "Flare Linen Pants", "Flare Chino Pants", "Cargo Pants", "Track Pants", "Sweat Pants", "Dress Pants", "Capri Pants", "Culottes", "Low-rise Pants", "Other Pants"], "Denim": ["Wide Jeans", "Baggy Jeans", "Relaxed Jeans", "Straight Jeans", "Slim Jeans", "Skinny Jeans", "Barrel Jeans", "Flared Jeans", "Balloon Jeans", "Tapered Jeans", "Basic Jeans"], "Shorts": ["Sweat Shorts", "Bermuda Shorts", "Baggy Shorts", "Track Shorts", "Culotte Shorts", "Tailored Shorts", "Boxer Shorts", "Running Shorts", "Denim Shorts", "Cargo Shorts"], "Skirt": ["Mini Pleated Skirt", "Mini A-Line Skirt", "Mini Flare Skirt", "Mini Wrap Skirt", "Mini Tiered Skirt", "Mini Ruffle Skirt", "Mini Pencil Skirt", "Mini Denim Skirt", "Mini Cargo Skirt", "Mini Slit Skirt", "Mini Balloon Skirt", "Midi Pleated Skirt", "Midi A-Line Skirt", "Midi Flare Skirt", "Midi Wrap Skirt", "Midi Tiered Skirt", "Midi Ruffle Skirt", "Midi Pencil Skirt", "Midi Denim Skirt", "Midi Cargo Skirt", "Midi Slit Skirt", "Midi Balloon Skirt", "Maxi Pleated Skirt", "Maxi A-Line Skirt", "Maxi Flare Skirt", "Maxi Wrap Skirt", "Maxi Tiered Skirt", "Maxi Ruffle Skirt", "Maxi Pencil Skirt", "Maxi Denim Skirt", "Maxi Cargo Skirt", "Maxi Slit Skirt", "Maxi Balloon Skirt", "Asymmetrical Skirt", "Other Skirts"], "Skort": ["Skort", "Skant", "Layering Skirt"], "Leggings": ["Basic Leggings", "Biker Shorts", "Flare Leggings"]}, "Onepiece": {"Dress": ["Shirt Dress", "Slip Dress", "Tank Dress", "T-shirt Dress", "Knit Dress", "Bodycon Dress", "Shift Dress", "A-line / Flare Dress", "Wrap Dress", "Tailored / Blazer Dress"], "Jumpsuit / Overalls": ["Jumpsuit", "Romper", "Overalls", "Coverall"]}, "Swimwear": {"Top": ["Rash Guards", "Water t-shirt"], "Bottom": ["Long", "Shorts", "Skirt"], "One-piece": ["Monokini", "Cover Ups"], "Bikinis & Set": ["Bikini Top", "Bikini Bottom"]}, "Shoes": {"Sneakers": ["Lifestyle Sneakers", "Ballerina Shoes", "Baseball Cleats", "Running Shoes", "Low-profile", "Outdoor / Hiking Shoes", "Boxing Boots", "Football Shoes", "Cycling Shoes", "Golf Shoes", "Tennis / Court / Flat", "Slip-on", "Dunk Sneakers", "Canvas Shoes", "Basketball Shoes", "Climbing Shoes"], "Flat / Heels": ["Ballet Flats", "Mary Janes", "Boat Shoes", "Dress Shoes", "Espadrilles", "Loafers", "Moccasins", "Pumps", "Slingback Shoes", "Wedge Heels"], "Sandals / Slides": ["Clogs / Mules", "Flip Flops", "Slide Sandals", "Sports & Active Sandals", "Slippers", "Gladiator Sandals", "Jelly Shoes", "Aqua Shoes"], "Boots": ["Engineer Boots", "Chelsea Boots", "Riding Boots", "Chukka Boots", "Chunky Boots", "Cowboy Boots", "Lace-up Boots", "Rain Boots", "Puffer Boots", "Ugg Boots", "Ski / Snowboard Boots", "Fur-lined Shoes"]}, "Hat": {"Caps": ["Baseball Cap", "Camp Cap", "Snapback", "Mesh Cap", "Trucker Hat", "Running Cap", "Hunting Cap", "Flat Cap", "Newsboy Cap", "Long-bill Cap", "Rope Cap"], "Beanie / Soft": ["Beanie", "Balaclava", "Beret and Tam Hat"], "Brimmed Hats": ["Bucket Hat", "Fedora", "Sun Cap", "Bonnet", "Crochet Bell Hat"], "Seasonal": ["Earflap Knit Hat", "Trapper Hat", "Earflap / Trooper Hat", "Earmuffs", "Fur Hat"], "ACC": ["Bandana", "Hairband / Headband"]}, "Bag": {"Handheld": ["Top-handle Bag", "Boston Bag", "Bowling Bag", "Barrel Bag", "Frame-Doctor Bag"], "Shoulder": ["Hobo Bag", "Baguette", "Crescent Bag", "Flap Shoulder Bag", "Sling Shoulder Bag"], "Crossbody": ["Messenger Bag", "Camera Bag", "Saddle Bag", "Phone Pouch", "Waist Bag"], "Tote": ["Tote Bag", "Shopper Bag", "Cabas Bag", "Market Tote", "Flat Tote", "North-South Tote", "East-West Tote", "Bucket Tote"], "Backpack": ["Backpack", "Drawstring Backpack", "Rucksack"], "Clutch / Pouch": ["Clutch", "Pouch", "Wristlet", "Evening Pouch"], "Unknown": ["Unknown Bag"]}};
+  const TAXONOMY={"Outer": {"Jacket": ["Leather Jacket", "Denim Jacket", "Suede Jacket", "Bomber Jacket", "Blazer", "Tailored Jacket", "Biker / Moto Jacket", "Trucker Jacket", "Jacket"], "Padding": ["Puffer Jacket", "Down Jacket", "Padded Jacket", "Quilted Jacket", "Puffer Coat", "Down Coat", "Padding Jacket"], "Coat": ["Wool Coat", "Tailored Coat", "Trench Coat", "Long Coat", "Peacoat", "Duffle Coat", "Wrap Coat", "Coat"], "Active": ["Windbreaker", "Anorak", "Shell Jacket", "Track Jacket", "Rain Jacket", "Fleece Jacket", "Active Jacket"], "Fur / Heavy": ["Fur Coat", "Fur Jacket", "Faux Fur Coat", "Shearling Jacket", "Shearling Coat", "Teddy Coat", "Heavy Coat"], "Vest": ["Down Vest", "Padded Vest", "Quilted Vest", "Fleece Vest", "Fur Vest", "Leather Vest", "Tailored Vest", "Utility Vest", "Vest"]}, "Top": {"Sweat / Hood": ["Hoodie", "Zip-up Hoodie", "Sweatshirts (MTM)", "Half-zip Sweat", "Knit Zip-up"], "T-shirts": ["Short Sleeve T", "Long Sleeve T", "Polo Shirt", "Henley"], "Shirts / Blouse": ["Shirts", "Blouse", "Tunic"], "Knitwear": ["Sweater / Knit Top", "Cardigan", "Sweater Zip-up", "Vest", "Summer Knit", "Twin-set", "Polo Knit", "Turtleneck / Mock-neck"], "Tank / Bra top": ["Sleeveless Tank", "Camisole", "Halter Neck Top", "Bra Top", "Tube Top", "Square Neck Tank", "U-neck Tank", "V-neck Tank"]}, "Bottom": {"Pants": ["Wide Cotton Pants", "Wide Sweat Pants", "Wide Nylon Pants", "Wide Corduroy Pants", "Wide Linen Pants", "Wide Chino Pants", "Baggy Cotton Pants", "Baggy Sweat Pants", "Baggy Nylon Pants", "Baggy Corduroy Pants", "Baggy Linen Pants", "Baggy Chino Pants", "Straight Cotton Pants", "Straight Sweat Pants", "Straight Nylon Pants", "Straight Corduroy Pants", "Straight Linen Pants", "Straight Chino Pants", "Tapered Cotton Pants", "Tapered Sweat Pants", "Tapered Nylon Pants", "Tapered Corduroy Pants", "Tapered Linen Pants", "Tapered Chino Pants", "Skinny Cotton Pants", "Skinny Sweat Pants", "Skinny Nylon Pants", "Skinny Corduroy Pants", "Skinny Linen Pants", "Skinny Chino Pants", "Barrel Cotton Pants", "Barrel Sweat Pants", "Barrel Nylon Pants", "Barrel Corduroy Pants", "Barrel Linen Pants", "Barrel Chino Pants", "Flare Cotton Pants", "Flare Sweat Pants", "Flare Nylon Pants", "Flare Corduroy Pants", "Flare Linen Pants", "Flare Chino Pants", "Cargo Pants", "Track Pants", "Sweat Pants", "Dress Pants", "Capri Pants", "Culottes", "Low-rise Pants", "Other Pants"], "Denim": ["Wide Jeans", "Baggy Jeans", "Relaxed Jeans", "Straight Jeans", "Slim Jeans", "Skinny Jeans", "Barrel Jeans", "Flared Jeans", "Balloon Jeans", "Tapered Jeans", "Basic Jeans"], "Shorts": ["Sweat Shorts", "Bermuda Shorts", "Baggy Shorts", "Track Shorts", "Culotte Shorts", "Tailored Shorts", "Boxer Shorts", "Running Shorts", "Denim Shorts", "Cargo Shorts"], "Skirt": ["Mini Pleated Skirt", "Mini A-Line Skirt", "Mini Flare Skirt", "Mini Wrap Skirt", "Mini Tiered Skirt", "Mini Ruffle Skirt", "Mini Pencil Skirt", "Mini Denim Skirt", "Mini Cargo Skirt", "Mini Slit Skirt", "Mini Balloon Skirt", "Midi Pleated Skirt", "Midi A-Line Skirt", "Midi Flare Skirt", "Midi Wrap Skirt", "Midi Tiered Skirt", "Midi Ruffle Skirt", "Midi Pencil Skirt", "Midi Denim Skirt", "Midi Cargo Skirt", "Midi Slit Skirt", "Midi Balloon Skirt", "Maxi Pleated Skirt", "Maxi A-Line Skirt", "Maxi Flare Skirt", "Maxi Wrap Skirt", "Maxi Tiered Skirt", "Maxi Ruffle Skirt", "Maxi Pencil Skirt", "Maxi Denim Skirt", "Maxi Cargo Skirt", "Maxi Slit Skirt", "Maxi Balloon Skirt", "Asymmetrical Skirt", "Other Skirts"], "Skort": ["Skort", "Skant", "Layering Skirt"], "Leggings": ["Basic Leggings", "Biker Shorts", "Flare Leggings"]}, "Onepiece": {"Dress": ["Shirt Dress", "Slip Dress", "Tank Dress", "T-shirt Dress", "Knit Dress", "Bodycon Dress", "Shift Dress", "A-line / Flare Dress", "Wrap Dress", "Tailored / Blazer Dress"], "Jumpsuit / Overalls": ["Jumpsuit", "Romper", "Overalls", "Coverall"]}, "Swimwear": {"Top": ["Rash Guards", "Water t-shirt"], "Bottom": ["Long", "Shorts", "Skirt"], "One-piece": ["Monokini", "Cover Ups"], "Bikinis & Set": ["Bikini Top", "Bikini Bottom"]}, "Shoes": {"Sneakers": ["Lifestyle Sneakers", "Ballerina Shoes", "Baseball Cleats", "Running Shoes", "Low-profile", "Outdoor / Hiking Shoes", "Boxing Boots", "Football Shoes", "Cycling Shoes", "Golf Shoes", "Tennis / Court / Flat", "Slip-on", "Dunk Sneakers", "Canvas Shoes", "Basketball Shoes", "Climbing Shoes"], "Flat / Heels": ["Ballet Flats", "Mary Janes", "Boat Shoes", "Dress Shoes", "Espadrilles", "Loafers", "Moccasins", "Pumps", "Slingback Shoes", "Wedge Heels"], "Sandals / Slides": ["Clogs / Mules", "Flip Flops", "Slide Sandals", "Sports & Active Sandals", "Slippers", "Gladiator Sandals", "Jelly Shoes", "Aqua Shoes"], "Boots": ["Engineer Boots", "Chelsea Boots", "Riding Boots", "Chukka Boots", "Chunky Boots", "Cowboy Boots", "Lace-up Boots", "Rain Boots", "Puffer Boots", "Ugg Boots", "Ski / Snowboard Boots", "Fur-lined Shoes"]}, "Hat": {"Caps": ["Baseball Cap", "Camp Cap", "Snapback", "Mesh Cap", "Trucker Hat", "Running Cap", "Hunting Cap", "Flat Cap", "Newsboy Cap", "Long-bill Cap", "Rope Cap"], "Beanie / Soft": ["Beanie", "Balaclava", "Beret and Tam Hat"], "Brimmed Hats": ["Bucket Hat", "Fedora", "Sun Cap", "Bonnet", "Crochet Bell Hat"], "Seasonal": ["Earflap Knit Hat", "Trapper Hat", "Earflap / Trooper Hat", "Earmuffs", "Fur Hat"], "ACC": ["Bandana", "Hairband / Headband"]}, "Bag": {"Handheld": ["Top-handle Bag", "Boston Bag", "Bowling Bag", "Barrel Bag", "Frame-Doctor Bag"], "Shoulder": ["Hobo Bag", "Baguette", "Crescent Bag", "Flap Shoulder Bag", "Sling Shoulder Bag"], "Crossbody": ["Messenger Bag", "Camera Bag", "Saddle Bag", "Phone Pouch", "Waist Bag"], "Tote": ["Tote Bag", "Shopper Bag", "Cabas Bag", "Market Tote", "Flat Tote", "North-South Tote", "East-West Tote", "Bucket Tote"], "Backpack": ["Backpack", "Drawstring Backpack", "Rucksack"], "Clutch / Pouch": ["Clutch", "Pouch", "Wristlet", "Evening Pouch"], "Unknown": ["Unknown Bag"]}};
   function rowKey(r){
     // 행 고유 ID 최우선 (같은 사진의 여러 옷도 구분 → 수정이 한 옷에만 적용)
     if(r.__rid) return r.__rid;
@@ -5114,6 +5121,15 @@ renderHealth();
       if(/short sleeve t|long sleeve t|t-shirt/i.test(s2)){
         let con='';try{const dd=JSON.parse(r.details||'{}');let cv=dd.construction;con=String(Array.isArray(cv)?cv[0]:cv||'').toLowerCase();}catch(e){}
         if(/layered|mock-layer/.test(con))s2='Layered T';
+      }
+      // ── Zip-up Hoodie/Half-zip/Knit Zip-up이 Top이 될 때 sub_category를 Sweat/Hood로 ──
+      // (원본 sub_category가 Active로 잘못 남아 Sweat/Hood 탭에 안 나오는 문제 보정)
+      if(/zip.?up hoodie|half.?zip|knit zip.?up/i.test(String(s2||''))){
+        let _mat='';try{const dd=JSON.parse(r.details||'{}');let mv=dd.material;_mat=String(Array.isArray(mv)?mv[0]:mv||'').toLowerCase();}catch(e){}
+        // 우븐/플리스/폴리/나일론이 아니면 Top → Sweat/Hood sub_category
+        if(!/fleece|polyester|nylon|shell|woven|softshell/.test(_mat)){
+          s1='Sweat / Hood';
+        }
       }
       // ── 신발 새 체계: Item Type 9종 (Sneakers/Loafers/Ballet Flats/Mary Janes/Pumps/Boots/Sandals/Slides/Mules) ──
       if((cRaw==='Shoes'||/shoes/i.test(e.cat||r.category||''))){
@@ -5877,38 +5893,129 @@ renderHealth();
 
 
   // ── SNS Trend (인스타·샤오홍슈, Overview 레이아웃 + 행 클릭 시 대표사진) ──
+  // ── 이미지 호버 확대 (전역 오버레이) ──
+  function showZoom(src){
+    let ov=document.getElementById('imgZoomOverlay');
+    if(!ov){
+      ov=document.createElement('div');
+      ov.id='imgZoomOverlay';
+      ov.style.cssText='position:fixed;z-index:99999;pointer-events:none;display:none;'+
+        'box-shadow:0 12px 48px rgba(0,0,0,.4);border-radius:10px;overflow:hidden;'+
+        'border:2px solid #fff;background:#fff';
+      ov.innerHTML='<img style="display:block;max-width:340px;max-height:460px;object-fit:contain">';
+      document.body.appendChild(ov);
+    }
+    const im=ov.querySelector('img');
+    im.src=src;
+    ov.style.display='block';
+    // 마우스 위치 근처에 표시
+    const move=e=>{
+      const pad=20, w=360, h=480;
+      let x=e.clientX+pad, y=e.clientY-h/2;
+      if(x+w>window.innerWidth)x=e.clientX-w-pad;
+      if(y<10)y=10; if(y+h>window.innerHeight)y=window.innerHeight-h-10;
+      ov.style.left=x+'px'; ov.style.top=y+'px';
+    };
+    ov._move=move;
+    document.addEventListener('mousemove',move);
+  }
+  function hideZoom(){
+    const ov=document.getElementById('imgZoomOverlay');
+    if(ov){ov.style.display='none';if(ov._move)document.removeEventListener('mousemove',ov._move);}
+  }
+
+  // ── Growth Rate 계산: 특정 시즌의 트렌드별 posts 수 집계 ──
+  function trendCountsForSeason(seasonCode){
+    // 해당 시즌의 데이터만으로 aggregate → label별 posts 맵
+    const def=SEASON_DEFS[seasonCode];
+    if(!def)return null;
+    const saved=STATE.seasonCode;
+    STATE.seasonCode=seasonCode;
+    let map=null;
+    try{
+      const T=aggregate(true);
+      map={};
+      T.forEach(t=>{map[t.label]=(map[t.label]||0)+(t.posts||0);});
+    }catch(e){map=null;}
+    STATE.seasonCode=saved;
+    // 데이터가 실제로 있는 시즌인지 확인 (없으면 null)
+    if(map&&Object.keys(map).length===0)map=null;
+    return map;
+  }
+  // 직전 시즌 코드 (QoQ)
+  function prevSeasonCode(code){
+    const keys=Object.keys(SEASON_DEFS);
+    const i=keys.indexOf(code);
+    return i>0?keys[i-1]:null;
+  }
+  // 작년 동일 타입 시즌 (YoY): 25SS→(없음), 26SS→25SS, 2627FW→2526FW
+  function yoySeasonCode(code){
+    const keys=Object.keys(SEASON_DEFS);
+    const cur=SEASON_DEFS[code];if(!cur)return null;
+    const i=keys.indexOf(code);
+    // 같은 type(SS/FW)이면서 더 이전인 시즌 중 가장 가까운 것
+    for(let k=i-1;k>=0;k--){if(SEASON_DEFS[keys[k]].type===cur.type)return keys[k];}
+    return null;
+  }
+  // 성장률 문자열 (현재 posts vs 비교 시즌 posts)
+  function growthStr(curPosts, cmpMap, label){
+    if(!cmpMap)return '<span class="gr-na">—</span>';   // 비교 데이터 없음
+    const prev=cmpMap[label]||0;
+    if(prev===0)return curPosts>0?'<span class="gr-new">NEW</span>':'<span class="gr-na">—</span>';
+    const pct=Math.round(((curPosts-prev)/prev)*100);
+    const cls=pct>0?'gr-up':pct<0?'gr-down':'gr-flat';
+    const arrow=pct>0?'▲':pct<0?'▼':'–';
+    return `<span class="${cls}">${arrow}${Math.abs(pct)}%</span>`;
+  }
+
   function renderSNS(){
     if(!hasData())return;
     const T=aggregate(true).slice(0,40);
     const el=document.getElementById('snsInner');
     if(!T.length){el.innerHTML=`<div class="empty"><div class="empty-mark">◐</div><div class="empty-title">SNS Trend</div><div class="empty-sub">load instagram / xiaohongshu CSV</div></div>`;return;}
-    let h=`<div class="ov-head">SNS Trend${OV_CAT!=='ALL'?' — '+esc(OV_CAT):''}</div><div class="ov-sub">Instagram · Xiaohongshu · ${T.length} trends · click a row for photos</div>`;
+    // 비교 시즌 데이터 (없으면 null → 성장률 "—")
+    const prevSeason=prevSeasonCode(STATE.seasonCode);
+    const yoySeason=yoySeasonCode(STATE.seasonCode);
+    const prevMap=prevSeason?trendCountsForSeason(prevSeason):null;
+    const yoyMap=yoySeason?trendCountsForSeason(yoySeason):null;
+    const prevLbl=prevSeason?SEASON_DEFS[prevSeason].label:'—';
+    const yoyLbl=yoySeason?SEASON_DEFS[yoySeason].label:'—';
+
+    let h=`<div class="ov-head">SNS Trend${OV_CAT!=='ALL'?' — '+esc(OV_CAT==='HAT'?'HAT/SHOE':OV_CAT):''}</div><div class="ov-sub">Instagram · Xiaohongshu · ${T.length} trends · click a row for photos</div>`;
     h+=`<div class="ov-levels"><span class="ov-lvllbl">Level</span>
       <span class="ov-lvl ${OV_LEVEL==='sub_category'?'on':''}" data-ovlvl="sub_category">Category</span>
       <span class="ov-lvl ${OV_LEVEL==='sub2'?'on':''}" data-ovlvl="sub2">Item</span>
       ${(OV_CAT==='HAT'||OV_CAT==='ACC')?'':`<span class="ov-lvl ${OV_LEVEL==='detail'?'on':''}" data-ovlvl="detail">Detail</span>`}</div>`;
     h+=subChipsHTML();
-    h+=`<table class="ovt"><thead><tr><th style="width:30px"></th><th>Trend</th><th style="width:90px">Category</th><th style="width:150px">Source</th><th style="width:90px">Engagement</th><th style="width:70px">Photos</th></tr></thead><tbody>`;
+    h+=`<table class="ovt"><thead><tr><th style="width:30px"></th><th>Trend</th><th style="width:80px">Category</th><th style="width:95px" title="직전 시즌 대비 (vs ${esc(prevLbl)})">QoQ Growth</th><th style="width:95px" title="전년 동시즌 대비 (vs ${esc(yoyLbl)})">YoY Growth</th><th style="width:85px">Engagement</th><th style="width:60px">Photos</th></tr></thead><tbody>`;
     T.forEach((t,i)=>{
-      const cast=[...t.srcs].map(s=>{const m=SRCMETA[s]||['#888',s||'?'];return `<span class="cast"><span class="dot" style="background:${m[0]}"></span>${esc(m[1])}</span>`;}).join('');
+      const qoq=growthStr(t.posts, prevMap, t.label);
+      const yoy=growthStr(t.posts, yoyMap, t.label);
       h+=`<tr class="sns-row" data-i="${i}" style="cursor:pointer">
         <td class="rk">${String(i+1).padStart(2,'0')}</td>
         <td class="tn">${esc(t.label)}</td>
         <td><span class="cast" style="font-size:10px">${esc(t.cat)}</span></td>
-        <td>${cast}</td>
+        <td class="gr-cell">${qoq}</td>
+        <td class="gr-cell">${yoy}</td>
         <td class="eng">${t.posts} <span style="font-size:9px;color:var(--ink-3)">posts</span></td>
         <td class="gr">${t.thumbs.length} ▸</td></tr>
-        <tr class="sns-photos" id="snsp-${i}" style="display:none"><td colspan="6" style="padding:0 12px 14px">
-          <div style="display:flex;gap:8px;flex-wrap:wrap">${t.thumbs.slice().sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,8).map(o=>`<img src="${esc(o.thumb)}" style="width:110px;height:140px;object-fit:cover;border-radius:6px;border:.5px solid var(--line)" loading="lazy" onerror="this.style.opacity=.25;this.alt='이미지: 로컬서버 필요'">`).join('')||'<span class="gr">no thumbnail</span>'}</div>
+        <tr class="sns-photos" id="snsp-${i}" style="display:none"><td colspan="7" style="padding:0 12px 14px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">${t.thumbs.slice().sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,8).map(o=>`<img src="${esc(o.thumb)}" class="sns-thumb" style="width:110px;height:140px;object-fit:cover;border-radius:6px;border:.5px solid var(--line);cursor:zoom-in;transition:transform .15s" loading="lazy" onerror="this.style.opacity=.25;this.alt='이미지: 로컬서버 필요'">`).join('')||'<span class="gr">no thumbnail</span>'}</div>
         </td></tr>`;
     });
     h+=`</tbody></table>`;
+    h+=`<div class="sns-grinfo">QoQ = 직전 시즌 대비 (vs ${esc(prevLbl)}) · YoY = 전년 동시즌 대비 (vs ${esc(yoyLbl)}) · 데이터 없는 시즌은 "—"로 표시되며, 시즌이 쌓이면 자동 계산됩니다</div>`;
     el.innerHTML=h;
     el.querySelectorAll('[data-ovlvl]').forEach(x=>x.addEventListener('click',()=>{OV_LEVEL=x.getAttribute('data-ovlvl');window.OV_LEVEL=OV_LEVEL;renderAll();if(window.PROP_RENDER)window.PROP_RENDER();}));
     el.querySelectorAll('.sns-row').forEach(row=>row.addEventListener('click',()=>{
       const p=document.getElementById('snsp-'+row.getAttribute('data-i'));
       if(p)p.style.display=p.style.display==='none'?'':'none';
     }));
+    // 이미지 호버 확대
+    el.querySelectorAll('.sns-thumb').forEach(img=>{
+      img.addEventListener('mouseenter',()=>showZoom(img.src));
+      img.addEventListener('mouseleave',hideZoom);
+    });
   }
 
   function loadedSources(){

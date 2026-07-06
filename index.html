@@ -2589,8 +2589,8 @@ function aggregateBySubcategory(items){
     // material: distinctive 만
     let mat = item.material
              || (Array.isArray(item.material_hints) && item.material_hints[0]);
-    if(mat){const mm=String(mat).trim();if(/^sweat[\/\-]?fleece$/i.test(mm)||/^sweat$/i.test(mm))mat='Sweat-Fleece';else if(/^faux[\/\-]?fur$/i.test(mm))mat='Faux Fur';}
-    if(mat && /denim|leather|knit|tweed|velvet|silk|linen|fleece|corduroy|tulle|lace|sweat/i.test(mat)){
+    if(mat)mat=normMaterial(mat);
+    if(mat && /denim|leather|knit|tweed|velvet|silk|linen|fleece|corduroy|tulle|lace|sweat|nylon|polyester/i.test(mat)){
       bump('material', mat);
     }
     // color: 첫 번째만
@@ -3066,6 +3066,27 @@ function calcConfidence(){
 
 // ─── IMAGE BOARD ────────────────────────────────────────
 // ── 카테고리 매칭 헬퍼: HAT 탭이면 HAT+ACC 둘 다, STATE.hatsub(ALL/HAT/SHOE) 반영 ──
+// ── material 값 정규화 (전역): Sweat/Fleece 표기통일 + Nylon/Polyester 통합 + Other→Unknown ──
+function normMaterial(val){
+  if(val==null)return val;
+  const m=String(val).trim();
+  if(!m)return val;
+  if(/^sweat[\/\-\s]?fleece$/i.test(m)||/^sweat$/i.test(m))return 'Sweat-Fleece';
+  if(/^(nylon|polyester|nylon[\/\-\s]polyester|poly|synthetic|poly\s?blend)$/i.test(m))return 'Nylon/Polyester';
+  if(/^faux[\/\-\s]?fur$/i.test(m))return 'Faux Fur';
+  if(/^(other|unknown|multi|fabric|n\/a|na)$/i.test(m))return 'Unknown';   // Other/불명 → Unknown 통일
+  return m;
+}
+// ── surface_finish 정규화: 조합값은 첫 값만, Destroyed→Distressed ──
+function normSurface(val){
+  if(val==null)return val;
+  let m=String(val).trim();
+  if(!m)return val;
+  m=m.split(/[,\/]/)[0].trim();   // "Washed, Distressed" → "Washed" (첫 값만)
+  if(/^destroyed$/i.test(m))return 'Distressed';   // Destroyed → Distressed 통합
+  if(/^(none|plain|standard)$/i.test(m))return null;
+  return m;
+}
 function catMatch(rawCat){
   const c=String(rawCat||'').toUpperCase();
   if(STATE.category==='ALL')return true;
@@ -3128,9 +3149,12 @@ function renderImageBoard(){
 
   let html = `
     <div class="ib-header">
-      <div class="ib-title">Image Board — ${STATE.category} · ${esc(SEASON_DEFS[STATE.seasonCode].label)}</div>
+      <div class="ib-title">Image Board — ${STATE.category==='HAT'?'HAT/SHOE':STATE.category} · ${esc(SEASON_DEFS[STATE.seasonCode].label)}</div>
       <div class="ib-source">Source: Instagram · ${totalImages} items · ${groups.length} sub-categories</div>
     </div>
+    ${STATE.category==='HAT'?`<div class="ib-hatsub" style="display:flex;gap:8px;margin:0 0 14px 2px">
+      ${['ALL','HAT','SHOE'].map(v=>`<span class="chip ${(STATE.hatsub||'ALL')===v?'on':''}" data-ovhatsub="${v}" style="cursor:pointer;font-size:12px;padding:4px 14px">${v==='ALL'?'All':v==='HAT'?'Hat':'Shoe'}</span>`).join('')}
+    </div>`:''}
     <div class="ib-groups">
   `;
 
@@ -5207,7 +5231,7 @@ renderHealth();
         // 기본값·미관측·의미없는 값 제외
         if(/^(solid|none|regular|standard|mid|not observable|unknown|n\/a|na|basic|null)$/.test(vn))return;
         // ── 카테고리-축 정합성: 오염 축 차단 (아우터/상의에 하의축, 하의에 상의축 등) ──
-        const BOTTOM_AX=['leg_shape','leg_width','waist_rise','rise','bottom_length','pants_detail','skirt_length','skirt_silhouette'];
+        const BOTTOM_AX=['leg_shape','leg_width','waist_rise','rise','bottom_length','hem_length','pants_detail','skirt_length','skirt_silhouette'];
         const TOP_AX=['neckline','neckline_depth','sleeve_length','sleeve_shape','shoulder_design','placket','collar'];
         if(cat==='OUTERWEAR'||cat==='TOP'){ if(BOTTOM_AX.includes(axis))return; }
         if(cat==='BOTTOM'){ if(TOP_AX.includes(axis))return; }
@@ -5225,12 +5249,15 @@ renderHealth();
           if(/^(off-?shoulder|cold-?shoulder|one-?shoulder|strapless|halter)$/i.test(nn)){axis='shoulder_design';}
           vn=String(val).toLowerCase().trim();
         }
-        // ── material 값 통일: Sweat/Fleece → Sweat-Fleece 등 (표기 중복 방지) ──
+        // ── material 값 통일: Sweat/Fleece 표기통일 + Nylon/Polyester 통합 + Other→Unknown ──
         if(axis==='material'){
-          const mm=String(val).trim();
-          if(/^sweat[\/\-]?fleece$/i.test(mm))val='Sweat-Fleece';
-          else if(/^faux[\/\-]?fur$/i.test(mm))val='Faux Fur';
-          else if(/^sweat$/i.test(mm))val='Sweat-Fleece';
+          val=normMaterial(val);
+          vn=String(val).toLowerCase().trim();
+        }
+        // ── surface_finish 정규화: 조합값 첫 값만, Destroyed→Distressed ──
+        if(axis==='surface_finish'){
+          val=normSurface(val);
+          if(val==null)return;
           vn=String(val).toLowerCase().trim();
         }
         // ── shoulder_design 값 통일 (하이픈 표기) ──
@@ -5240,6 +5267,14 @@ renderHealth();
           else if(/^cold.?shoulder$/i.test(sm))val='Cold-shoulder';
           else if(/^one.?shoulder$/i.test(sm))val='One-shoulder';
           else if(/^standard$/i.test(sm))return;   // 기본값 제외
+          vn=String(val).toLowerCase().trim();
+        }
+        // ── insulation 통일: Down/Synthetic Padded → Insulated (사진으로 구별 불가) ──
+        if(axis==='insulation'){
+          const im=String(val).trim();
+          if(/^(down|synthetic padded|synthetic|padded|puffer)$/i.test(im))val='Insulated';
+          else if(/faux.?fur/i.test(im))val='Faux Fur';
+          else if(/^none$/i.test(im))return;
           vn=String(val).toLowerCase().trim();
         }
         // sleeve_length 모순 방지: Short/Long Sleeve T 버킷에 반대 소매 집계 안 함
@@ -6324,7 +6359,13 @@ renderHealth();
       const axisDist=(rws, keyFn)=>{
         const m=new Map();
         rws.forEach(r=>{const v=keyFn(r);if(!v)return;const vn=String(v).trim();if(!vn||/^(solid|none|regular|standard|무지|plain)$/i.test(vn))return;m.set(vn,(m.get(vn)||0)+1);});
-        return [...m.entries()].map(([k,v])=>({label:k,count:v})).sort((a,b)=>b.count-a.count).slice(0,8);
+        return [...m.entries()].map(([k,v])=>({label:k,count:v}))
+          .sort((a,b)=>{
+            // Unknown/Other는 항상 맨 아래로
+            const au=/^(unknown|other)$/i.test(a.label), bu=/^(unknown|other)$/i.test(b.label);
+            if(au&&!bu)return 1; if(bu&&!au)return -1;
+            return b.count-a.count;
+          }).slice(0,8);
       };
       const getDet=(r,ax)=>{let d={};try{d=JSON.parse(r.details||'{}');}catch(e){}let v=d[ax];v=Array.isArray(v)?v[0]:v;
         // shoulder 계열 통합: Cold-shoulder/One-shoulder → Off-shoulder
@@ -6336,13 +6377,27 @@ renderHealth();
       if(NORM==='TOP'){
         extra.neckline=axisDist(rows, r=>{
           let v=getDet(r,'neckline')||getDet(r,'collar');
+          if(!v)return null;
+          // off/cold/one-shoulder/halter/strapless는 넥라인이 아니라 shoulder 축 → NECKLINE 도넛에서 제외
+          if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder|halter|strapless/i.test(String(v)))return null;
+          // 넥라인 표기 통일 (V→V-neck 등)
+          const n=String(v).trim();
+          if(/^v$/i.test(n))return 'V-neck';if(/^u$/i.test(n))return 'U-neck';
+          if(/^scoop$/i.test(n))return 'Scoop-neck';if(/^boat$/i.test(n))return 'Boat-neck';
+          if(/^square$/i.test(n))return 'Square-neck';if(/^cowl$/i.test(n))return 'Cowl-neck';
           return v;
         });
-        // 숄더 디자인 분포 (Off-shoulder/One-shoulder/Cold-shoulder/Halter/Drop-shoulder 등)
+        // 숄더 디자인 분포 (Off-shoulder/One-shoulder/Cold-shoulder/Halter 등) — 표기 통일
         extra.shoulder=axisDist(rows, r=>{
           let v=getDet(r,'shoulder_design')||getDet(r,'shoulder');
           // neckline에 숄더 정보가 들어간 경우도 흡수
           if(!v){let nk=getDet(r,'neckline');if(nk&&/shoulder|halter|off|one|cold|drop/i.test(String(nk)))v=nk;}
+          if(!v)return null;
+          const s=String(v).trim();
+          if(/^off.?shoulder$/i.test(s))return 'Off-shoulder';
+          if(/^cold.?shoulder$/i.test(s))return 'Cold-shoulder';
+          if(/^one.?shoulder$/i.test(s))return 'One-shoulder';
+          if(/^standard$/i.test(s))return null;
           return v;
         });
       }
@@ -6373,8 +6428,7 @@ renderHealth();
         // shell 광택 그래프 (Matte/Metallic/Shimmer/Glitter 등)
         extra.shell=axisDist(rows, r=>{
           let v=getDet(r,'shell_finish')||getDet(r,'surface_finish');
-          if(v){const s=String(v).trim();if(/^(none|무지|plain)$/i.test(s))return null;return s;}
-          return null;
+          return normSurface(v);
         });
         // 트리밍 그래프 (Fur Trim/Faux Fur Trim 등 — 후드/칼라 퍼트림)
         extra.trim=axisDist(rows, r=>{

@@ -3097,6 +3097,8 @@ function catMatch(rawCat){
   return c===STATE.category;
 }
 function renderImageBoard(){
+  // Image Board는 실제로 renderBoard(HAT/SHOE 서브탭 포함)가 그림 → 그쪽으로 위임
+  if(typeof window.renderBoard==='function'){window.renderBoard();return;}
   const inner = $('imagesInner');
   if(!STATE.loaded){
     inner.innerHTML = `
@@ -4925,7 +4927,7 @@ renderHealth();
   // 사진별 수정(제외/분류) 저장: key -> {x:true=제외, cat, sub1, sub2}
   window.EDIT_OV=window.EDIT_OV||{};
   const EDIT_OV=window.EDIT_OV;
-  const TAXONOMY={"Outer": {"Jacket": ["Leather Jacket", "Denim Jacket", "Suede Jacket", "Bomber Jacket", "Blazer", "Tailored Jacket", "Biker / Moto Jacket", "Trucker Jacket", "Jacket"], "Padding": ["Puffer Jacket", "Down Jacket", "Padded Jacket", "Quilted Jacket", "Puffer Coat", "Down Coat", "Padding Jacket"], "Coat": ["Wool Coat", "Tailored Coat", "Trench Coat", "Long Coat", "Peacoat", "Duffle Coat", "Wrap Coat", "Coat"], "Active": ["Windbreaker", "Anorak", "Shell Jacket", "Track Jacket", "Rain Jacket", "Fleece Jacket", "Active Jacket"], "Fur / Heavy": ["Fur Coat", "Fur Jacket", "Faux Fur Coat", "Shearling Jacket", "Shearling Coat", "Teddy Coat", "Heavy Coat"], "Vest": ["Down Vest", "Padded Vest", "Quilted Vest", "Fleece Vest", "Fur Vest", "Leather Vest", "Tailored Vest", "Utility Vest", "Vest"]}, "Top": {"Sweat / Hood": ["Hoodie", "Zip-up Hoodie", "Sweatshirts (MTM)", "Half-zip Sweat", "Knit Zip-up"], "T-shirts": ["Short Sleeve T", "Long Sleeve T", "Polo Shirt", "Henley"], "Shirts / Blouse": ["Shirts", "Blouse", "Tunic"], "Knitwear": ["Sweater / Knit Top", "Cardigan", "Sweater Zip-up", "Vest", "Summer Knit", "Twin-set", "Polo Knit", "Turtleneck / Mock-neck"], "Tank / Bra top": ["Sleeveless Tank", "Camisole", "Halter Neck Top", "Bra Top", "Tube Top", "Square Neck Tank", "U-neck Tank", "V-neck Tank"]}, "Bottom": {"Pants": ["Wide Cotton Pants", "Wide Sweat Pants", "Wide Nylon Pants", "Wide Corduroy Pants", "Wide Linen Pants", "Wide Chino Pants", "Baggy Cotton Pants", "Baggy Sweat Pants", "Baggy Nylon Pants", "Baggy Corduroy Pants", "Baggy Linen Pants", "Baggy Chino Pants", "Straight Cotton Pants", "Straight Sweat Pants", "Straight Nylon Pants", "Straight Corduroy Pants", "Straight Linen Pants", "Straight Chino Pants", "Tapered Cotton Pants", "Tapered Sweat Pants", "Tapered Nylon Pants", "Tapered Corduroy Pants", "Tapered Linen Pants", "Tapered Chino Pants", "Skinny Cotton Pants", "Skinny Sweat Pants", "Skinny Nylon Pants", "Skinny Corduroy Pants", "Skinny Linen Pants", "Skinny Chino Pants", "Barrel Cotton Pants", "Barrel Sweat Pants", "Barrel Nylon Pants", "Barrel Corduroy Pants", "Barrel Linen Pants", "Barrel Chino Pants", "Flare Cotton Pants", "Flare Sweat Pants", "Flare Nylon Pants", "Flare Corduroy Pants", "Flare Linen Pants", "Flare Chino Pants", "Cargo Pants", "Track Pants", "Sweat Pants", "Dress Pants", "Capri Pants", "Culottes", "Low-rise Pants", "Other Pants"], "Denim": ["Wide Jeans", "Baggy Jeans", "Relaxed Jeans", "Straight Jeans", "Slim Jeans", "Skinny Jeans", "Barrel Jeans", "Flared Jeans", "Balloon Jeans", "Tapered Jeans", "Basic Jeans"], "Shorts": ["Sweat Shorts", "Bermuda Shorts", "Baggy Shorts", "Track Shorts", "Culotte Shorts", "Tailored Shorts", "Boxer Shorts", "Running Shorts", "Denim Shorts", "Cargo Shorts"], "Skirt": ["Mini Pleated Skirt", "Mini A-Line Skirt", "Mini Flare Skirt", "Mini Wrap Skirt", "Mini Tiered Skirt", "Mini Ruffle Skirt", "Mini Pencil Skirt", "Mini Denim Skirt", "Mini Cargo Skirt", "Mini Slit Skirt", "Mini Balloon Skirt", "Midi Pleated Skirt", "Midi A-Line Skirt", "Midi Flare Skirt", "Midi Wrap Skirt", "Midi Tiered Skirt", "Midi Ruffle Skirt", "Midi Pencil Skirt", "Midi Denim Skirt", "Midi Cargo Skirt", "Midi Slit Skirt", "Midi Balloon Skirt", "Maxi Pleated Skirt", "Maxi A-Line Skirt", "Maxi Flare Skirt", "Maxi Wrap Skirt", "Maxi Tiered Skirt", "Maxi Ruffle Skirt", "Maxi Pencil Skirt", "Maxi Denim Skirt", "Maxi Cargo Skirt", "Maxi Slit Skirt", "Maxi Balloon Skirt", "Asymmetrical Skirt", "Other Skirts"], "Skort": ["Skort", "Skant", "Layering Skirt"], "Leggings": ["Basic Leggings", "Biker Shorts", "Flare Leggings"]}, "Onepiece": {"Dress": ["Shirt Dress", "Slip Dress", "Tank Dress", "T-shirt Dress", "Knit Dress", "Bodycon Dress", "Shift Dress", "A-line / Flare Dress", "Wrap Dress", "Tailored / Blazer Dress"], "Jumpsuit / Overalls": ["Jumpsuit", "Romper", "Overalls", "Coverall"]}, "Swimwear": {"Top": ["Rash Guards", "Water t-shirt"], "Bottom": ["Long", "Shorts", "Skirt"], "One-piece": ["Monokini", "Cover Ups"], "Bikinis & Set": ["Bikini Top", "Bikini Bottom"]}, "Shoes": {"Sneakers": ["Lifestyle Sneakers", "Ballerina Shoes", "Baseball Cleats", "Running Shoes", "Low-profile", "Outdoor / Hiking Shoes", "Boxing Boots", "Football Shoes", "Cycling Shoes", "Golf Shoes", "Tennis / Court / Flat", "Slip-on", "Dunk Sneakers", "Canvas Shoes", "Basketball Shoes", "Climbing Shoes"], "Flat / Heels": ["Ballet Flats", "Mary Janes", "Boat Shoes", "Dress Shoes", "Espadrilles", "Loafers", "Moccasins", "Pumps", "Slingback Shoes", "Wedge Heels"], "Sandals / Slides": ["Clogs / Mules", "Flip Flops", "Slide Sandals", "Sports & Active Sandals", "Slippers", "Gladiator Sandals", "Jelly Shoes", "Aqua Shoes"], "Boots": ["Engineer Boots", "Chelsea Boots", "Riding Boots", "Chukka Boots", "Chunky Boots", "Cowboy Boots", "Lace-up Boots", "Rain Boots", "Puffer Boots", "Ugg Boots", "Ski / Snowboard Boots", "Fur-lined Shoes"]}, "Hat": {"Caps": ["Baseball Cap", "Camp Cap", "Snapback", "Mesh Cap", "Trucker Hat", "Running Cap", "Hunting Cap", "Flat Cap", "Newsboy Cap", "Long-bill Cap", "Rope Cap"], "Beanie / Soft": ["Beanie", "Balaclava", "Beret and Tam Hat"], "Brimmed Hats": ["Bucket Hat", "Fedora", "Sun Cap", "Bonnet", "Crochet Bell Hat"], "Seasonal": ["Earflap Knit Hat", "Trapper Hat", "Earflap / Trooper Hat", "Earmuffs", "Fur Hat"], "ACC": ["Bandana", "Hairband / Headband"]}, "Bag": {"Handheld": ["Top-handle Bag", "Boston Bag", "Bowling Bag", "Barrel Bag", "Frame-Doctor Bag"], "Shoulder": ["Hobo Bag", "Baguette", "Crescent Bag", "Flap Shoulder Bag", "Sling Shoulder Bag"], "Crossbody": ["Messenger Bag", "Camera Bag", "Saddle Bag", "Phone Pouch", "Waist Bag"], "Tote": ["Tote Bag", "Shopper Bag", "Cabas Bag", "Market Tote", "Flat Tote", "North-South Tote", "East-West Tote", "Bucket Tote"], "Backpack": ["Backpack", "Drawstring Backpack", "Rucksack"], "Clutch / Pouch": ["Clutch", "Pouch", "Wristlet", "Evening Pouch"], "Unknown": ["Unknown Bag"]}};
+  const TAXONOMY={"Outer": {"Jacket": ["Leather Jacket", "Denim Jacket", "Suede Jacket", "Bomber Jacket", "Blazer", "Tailored Jacket", "Biker / Moto Jacket", "Trucker Jacket", "Jacket"], "Padding": ["Puffer Jacket", "Down Jacket", "Padded Jacket", "Quilted Jacket", "Puffer Coat", "Down Coat", "Padding Jacket"], "Coat": ["Wool Coat", "Tailored Coat", "Trench Coat", "Long Coat", "Peacoat", "Duffle Coat", "Wrap Coat", "Coat"], "Active": ["Windbreaker", "Shell Jacket", "3L Shell", "Anorak", "Track Jacket", "Rain Jacket", "Fleece Jacket", "Active Jacket"], "Fur / Heavy": ["Fur Coat", "Fur Jacket", "Faux Fur Coat", "Shearling Jacket", "Shearling Coat", "Teddy Coat", "Heavy Coat"], "Vest": ["Down Vest", "Padded Vest", "Quilted Vest", "Fleece Vest", "Fur Vest", "Leather Vest", "Tailored Vest", "Utility Vest", "Vest"]}, "Top": {"Sweat / Hood": ["Hoodie", "Zip-up Hoodie", "Sweatshirts (MTM)", "Half-zip Sweat", "Knit Zip-up"], "T-shirts": ["Short Sleeve T", "Long Sleeve T", "Polo Shirt", "Henley"], "Shirts / Blouse": ["Shirts", "Blouse", "Tunic"], "Knitwear": ["Sweater / Knit Top", "Cardigan", "Sweater Zip-up", "Vest", "Summer Knit", "Twin-set", "Polo Knit", "Turtleneck / Mock-neck"], "Tank / Bra top": ["Sleeveless Tank", "Camisole", "Halter Neck Top", "Bra Top", "Tube Top", "Square Neck Tank", "U-neck Tank", "V-neck Tank"]}, "Bottom": {"Pants": ["Wide Cotton Pants", "Wide Sweat Pants", "Wide Nylon Pants", "Wide Corduroy Pants", "Wide Linen Pants", "Wide Chino Pants", "Baggy Cotton Pants", "Baggy Sweat Pants", "Baggy Nylon Pants", "Baggy Corduroy Pants", "Baggy Linen Pants", "Baggy Chino Pants", "Straight Cotton Pants", "Straight Sweat Pants", "Straight Nylon Pants", "Straight Corduroy Pants", "Straight Linen Pants", "Straight Chino Pants", "Tapered Cotton Pants", "Tapered Sweat Pants", "Tapered Nylon Pants", "Tapered Corduroy Pants", "Tapered Linen Pants", "Tapered Chino Pants", "Skinny Cotton Pants", "Skinny Sweat Pants", "Skinny Nylon Pants", "Skinny Corduroy Pants", "Skinny Linen Pants", "Skinny Chino Pants", "Barrel Cotton Pants", "Barrel Sweat Pants", "Barrel Nylon Pants", "Barrel Corduroy Pants", "Barrel Linen Pants", "Barrel Chino Pants", "Flare Cotton Pants", "Flare Sweat Pants", "Flare Nylon Pants", "Flare Corduroy Pants", "Flare Linen Pants", "Flare Chino Pants", "Cargo Pants", "Track Pants", "Sweat Pants", "Dress Pants", "Capri Pants", "Culottes", "Low-rise Pants", "Other Pants"], "Denim": ["Wide Jeans", "Baggy Jeans", "Relaxed Jeans", "Straight Jeans", "Slim Jeans", "Skinny Jeans", "Barrel Jeans", "Flared Jeans", "Balloon Jeans", "Tapered Jeans", "Basic Jeans"], "Shorts": ["Sweat Shorts", "Bermuda Shorts", "Baggy Shorts", "Track Shorts", "Culotte Shorts", "Tailored Shorts", "Boxer Shorts", "Running Shorts", "Denim Shorts", "Cargo Shorts"], "Skirt": ["Mini Pleated Skirt", "Mini A-Line Skirt", "Mini Flare Skirt", "Mini Wrap Skirt", "Mini Tiered Skirt", "Mini Ruffle Skirt", "Mini Pencil Skirt", "Mini Denim Skirt", "Mini Cargo Skirt", "Mini Slit Skirt", "Mini Balloon Skirt", "Midi Pleated Skirt", "Midi A-Line Skirt", "Midi Flare Skirt", "Midi Wrap Skirt", "Midi Tiered Skirt", "Midi Ruffle Skirt", "Midi Pencil Skirt", "Midi Denim Skirt", "Midi Cargo Skirt", "Midi Slit Skirt", "Midi Balloon Skirt", "Maxi Pleated Skirt", "Maxi A-Line Skirt", "Maxi Flare Skirt", "Maxi Wrap Skirt", "Maxi Tiered Skirt", "Maxi Ruffle Skirt", "Maxi Pencil Skirt", "Maxi Denim Skirt", "Maxi Cargo Skirt", "Maxi Slit Skirt", "Maxi Balloon Skirt", "Asymmetrical Skirt", "Other Skirts"], "Skort": ["Skort", "Skant", "Layering Skirt"], "Leggings": ["Basic Leggings", "Biker Shorts", "Flare Leggings"]}, "Onepiece": {"Dress": ["Shirt Dress", "Slip Dress", "Tank Dress", "T-shirt Dress", "Knit Dress", "Bodycon Dress", "Shift Dress", "A-line / Flare Dress", "Wrap Dress", "Tailored / Blazer Dress"], "Jumpsuit / Overalls": ["Jumpsuit", "Romper", "Overalls", "Coverall"]}, "Swimwear": {"Top": ["Rash Guards", "Water t-shirt"], "Bottom": ["Long", "Shorts", "Skirt"], "One-piece": ["Monokini", "Cover Ups"], "Bikinis & Set": ["Bikini Top", "Bikini Bottom"]}, "Shoes": {"Sneakers": ["Lifestyle Sneakers", "Ballerina Shoes", "Baseball Cleats", "Running Shoes", "Low-profile", "Outdoor / Hiking Shoes", "Boxing Boots", "Football Shoes", "Cycling Shoes", "Golf Shoes", "Tennis / Court / Flat", "Slip-on", "Dunk Sneakers", "Canvas Shoes", "Basketball Shoes", "Climbing Shoes"], "Flat / Heels": ["Ballet Flats", "Mary Janes", "Boat Shoes", "Dress Shoes", "Espadrilles", "Loafers", "Moccasins", "Pumps", "Slingback Shoes", "Wedge Heels"], "Sandals / Slides": ["Clogs / Mules", "Flip Flops", "Slide Sandals", "Sports & Active Sandals", "Slippers", "Gladiator Sandals", "Jelly Shoes", "Aqua Shoes"], "Boots": ["Engineer Boots", "Chelsea Boots", "Riding Boots", "Chukka Boots", "Chunky Boots", "Cowboy Boots", "Lace-up Boots", "Rain Boots", "Puffer Boots", "Ugg Boots", "Ski / Snowboard Boots", "Fur-lined Shoes"]}, "Hat": {"Caps": ["Baseball Cap", "Camp Cap", "Snapback", "Mesh Cap", "Trucker Hat", "Running Cap", "Hunting Cap", "Flat Cap", "Newsboy Cap", "Long-bill Cap", "Rope Cap"], "Beanie / Soft": ["Beanie", "Balaclava", "Beret and Tam Hat"], "Brimmed Hats": ["Bucket Hat", "Fedora", "Sun Cap", "Bonnet", "Crochet Bell Hat"], "Seasonal": ["Earflap Knit Hat", "Trapper Hat", "Earflap / Trooper Hat", "Earmuffs", "Fur Hat"], "ACC": ["Bandana", "Hairband / Headband"]}, "Bag": {"Handheld": ["Top-handle Bag", "Boston Bag", "Bowling Bag", "Barrel Bag", "Frame-Doctor Bag"], "Shoulder": ["Hobo Bag", "Baguette", "Crescent Bag", "Flap Shoulder Bag", "Sling Shoulder Bag"], "Crossbody": ["Messenger Bag", "Camera Bag", "Saddle Bag", "Phone Pouch", "Waist Bag"], "Tote": ["Tote Bag", "Shopper Bag", "Cabas Bag", "Market Tote", "Flat Tote", "North-South Tote", "East-West Tote", "Bucket Tote"], "Backpack": ["Backpack", "Drawstring Backpack", "Rucksack"], "Clutch / Pouch": ["Clutch", "Pouch", "Wristlet", "Evening Pouch"], "Unknown": ["Unknown Bag"]}};
   function rowKey(r){
     // 행 고유 ID 최우선 (같은 사진의 여러 옷도 구분 → 수정이 한 옷에만 적용)
     if(r.__rid) return r.__rid;
@@ -4961,6 +4963,13 @@ renderHealth();
     const cRaw=(e.cat||(r.category||'').trim());
     // 빈/맨 Jacket → Other Jacket (그냥 "Jacket" 트렌드 방지)
     if(normCat(cRaw)==='OUTERWEAR'&&s1==='Jacket'&&(!s2||s2==='Jacket'))s2='Other Jacket';
+    // ── Shell 3단계 승격: shell_layer=3L 또는 방수 membrane 있으면 → 3L Shell ──
+    if(normCat(cRaw)==='OUTERWEAR'&&/shell jacket|windbreaker/i.test(String(s2||''))){
+      let slyr='',mem='';try{const dd=JSON.parse(r.details||'{}');
+        let sv=dd.shell_layer;slyr=String(Array.isArray(sv)?sv[0]:sv||'').toLowerCase();
+        let mv=dd.membrane;mem=String(Array.isArray(mv)?mv[0]:mv||'').toLowerCase();}catch(e){}
+      if(/3l/.test(slyr)||/gore.?tex|waterproof|proprietary/.test(mem))s2='3L Shell';
+    }
     // Tank/Bra top 또는 옛 Corset 분류인데 소매 있으면 강제 교정 (긴팔은 절대 Tank 아님)
     if(s1==='Tank / Bra top'||/bandeau|bustier|corset|sleeveless t|long cami/i.test(s2)){
       let sl='';try{const d=JSON.parse(r.details||'{}');sl=String(Array.isArray(d.sleeve_length)?d.sleeve_length[0]:(d.sleeve_length||'')).toLowerCase();}catch(e){}
@@ -4992,7 +5001,9 @@ renderHealth();
         'Coach Jacket / Skacket':'Coach Jacket','Skacket':'Coach Jacket',
         // ── 중복 통일 (추가) ──
         'Other Outer':'Other Jacket','Other Outerwear':'Other Jacket',   // Other 통일
-        'Shell Jacket':'Windbreaker','Shell':'Windbreaker','Windbreaker Jacket':'Windbreaker',   // 바람막이 통일
+        'Windbreaker Jacket':'Windbreaker','Wind Breaker':'Windbreaker',   // 바람막이 표기통일
+        'Woven Jacket':'Shell Jacket','Other Woven':'Shell Jacket',   // 우븐 재킷 → Shell Jacket(미드 셸)로 흡수
+        'Tech Shell':'3L Shell','Tech Shell Jacket':'3L Shell','Gore-tex Jacket':'3L Shell','Hardshell':'3L Shell','3L Shell Jacket':'3L Shell',   // 고어텍스/하드셸 → 3L Shell
         'Duffle':'Duffle Coat','Duffel Coat':'Duffle Coat','Duffle Jacket':'Duffle Coat',   // 더플 통일
       };
       if(SUB2_ALIAS[s2]) s2=SUB2_ALIAS[s2];
@@ -5006,10 +5017,19 @@ renderHealth();
           else if(/none|rib|crew/i.test(col)||!col)s2=s2;  // 칼라없음/립넥 → 원래값(대개 Bomber) 유지
         }
       }
-      // ── Sleeveless Tank는 항상 Tank / Bra top Sub로 (T-shirts 중복 제거) ──
+      // ── Sleeveless Tank는 Tank / Bra top Sub로 (단, 오프숄더면 어깨노출일 뿐이니 Sleeve T로) ──
       if(/^sleeveless tank$|^tank top$/i.test(s2)){
-        s1='Tank / Bra top';
-        s2='Sleeveless Tank';
+        let sl='',shd='';try{const dd=JSON.parse(r.details||'{}');
+          let sv=dd.sleeve_length;sl=String(Array.isArray(sv)?sv[0]:sv||'').toLowerCase();
+          let sh=dd.shoulder_design;shd=String(Array.isArray(sh)?sh[0]:sh||'').toLowerCase();}catch(e){}
+        if(/off.?shoulder|cold.?shoulder|one.?shoulder/.test(shd)){
+          // 어깨 드러남이지 민소매 아님 → 소매길이로 T-shirt 분류
+          s1='T-shirts';
+          s2=/long/.test(sl)?'Long Sleeve T':'Short Sleeve T';
+        }else{
+          s1='Tank / Bra top';
+          s2='Sleeveless Tank';
+        }
       }
       // ── Denim Item Level = fit/leg + Jeans (분류체계 v3) ──
       // "Wide Denim" → "Wide Jeans", fit 없으면 "Basic Jeans"
@@ -5103,17 +5123,23 @@ renderHealth();
       // ── T-shirt Item 정리: 넥라인/디테일이 든 아이템명을 소매기준 Short/Long Sleeve T로 ──
       // Boat Neck T / Hooded T / Ringer T / Graphic T / Crop Top / Raglan T → 소매 보고 정규화
       if(/^(boat neck t-?shirt|hooded t-?shirt|ringer t-?shirt|graphic t-?shirt|raglan t-?shirt|crop top|scoop.?neck t-?shirt|u-?neck t-?shirt|v-?neck t-?shirt|square neck t-?shirt|t-?shirt)$/i.test(s2)){
-        let sl='';try{const dd=JSON.parse(r.details||'{}');let sv=dd.sleeve_length;sl=String(Array.isArray(sv)?sv[0]:sv||'').toLowerCase();}catch(e){}
+        let sl='',shd='';try{const dd=JSON.parse(r.details||'{}');let sv=dd.sleeve_length;sl=String(Array.isArray(sv)?sv[0]:sv||'').toLowerCase();
+          let sh=dd.shoulder_design;shd=String(Array.isArray(sh)?sh[0]:sh||'').toLowerCase();}catch(e){}
+        // 오프숄더/콜드숄더는 sleeveless여도 Tank 아님 (어깨노출 ≠ 민소매) → 소매길이로
+        const isOffSh=/off.?shoulder|cold.?shoulder|one.?shoulder/.test(shd);
         if(/long/.test(sl))s2='Long Sleeve T';
-        else if(/sleeveless/.test(sl))s2='Sleeveless Tank';
-        else s2='Short Sleeve T';   // Short/Elbow/Cap/불명 → Short Sleeve T
+        else if(/sleeveless/.test(sl)&&!isOffSh)s2='Sleeveless Tank';
+        else s2='Short Sleeve T';   // Short/Elbow/Cap/불명/오프숄더 → Short Sleeve T
       }
       // ── 모순 교정: Short/Long Sleeve T인데 실제 sleeveless/camisole 끈이면 Sleeveless Tank로 ──
       if(/^(short|long) sleeve t$/i.test(s2)){
-        let sl='',strap='';try{const dd=JSON.parse(r.details||'{}');
+        let sl='',strap='',shd='';try{const dd=JSON.parse(r.details||'{}');
           let sv=dd.sleeve_length;sl=String(Array.isArray(sv)?sv[0]:sv||'').toLowerCase();
-          let st=dd.strap_style;strap=String(Array.isArray(st)?st[0]:st||'').toLowerCase();}catch(e){}
-        if(/sleeveless/.test(sl)||/camisole|spaghetti|halter|tube|strapless/.test(strap))s2='Sleeveless Tank';
+          let st=dd.strap_style;strap=String(Array.isArray(st)?st[0]:st||'').toLowerCase();
+          let sh=dd.shoulder_design;shd=String(Array.isArray(sh)?sh[0]:sh||'').toLowerCase();}catch(e){}
+        const isOffSh=/off.?shoulder|cold.?shoulder|one.?shoulder/.test(shd);
+        // 오프숄더면 Tank로 안 감 (진짜 캐미/스트랩만 Tank)
+        if(!isOffSh&&(/sleeveless/.test(sl)||/camisole|spaghetti|halter|tube|strapless/.test(strap)))s2='Sleeveless Tank';
       }
       // ── Layered T 승격: T-shirt인데 construction=Layered/Mock-layer면 Item을 Layered T로 ──
       if(/short sleeve t|long sleeve t|t-shirt/i.test(s2)){
@@ -5124,8 +5150,9 @@ renderHealth();
       // (원본 sub_category가 Active로 잘못 남아 Sweat/Hood 탭에 안 나오는 문제 보정)
       if(/zip.?up hoodie|half.?zip|knit zip.?up/i.test(String(s2||''))){
         let _mat='';try{const dd=JSON.parse(r.details||'{}');let mv=dd.material;_mat=String(Array.isArray(mv)?mv[0]:mv||'').toLowerCase();}catch(e){}
-        // 우븐/플리스/폴리/나일론이 아니면 Top → Sweat/Hood sub_category
-        if(!/fleece|polyester|nylon|shell|woven|softshell/.test(_mat)){
+        // Sweat-Fleece(맨투맨 소재)는 Top, 순수 fleece/poly/nylon/우븐만 Outer 대상
+        const _isOuterMat=/fleece|polyester|nylon|shell|woven|softshell/.test(_mat)&&!/sweat/.test(_mat);
+        if(!_isOuterMat){
           s1='Sweat / Hood';
         }
       }
@@ -5184,7 +5211,7 @@ renderHealth();
         const _s2=String(s2||'').toLowerCase();
         if(/zip.?up hoodie|knit zip.?up|half.?zip/.test(_s2)){
           let mat='';try{const dd=JSON.parse(r.details||'{}');let mv=dd.material;mat=String(Array.isArray(mv)?mv[0]:mv||'').toLowerCase();}catch(e){}
-          if(/fleece|polyester|nylon|shell|woven|softshell/.test(mat))nc='OUTERWEAR';  // 우븐/플리스/폴리/나일론 → Outer
+          if(/fleece|polyester|nylon|shell|woven|softshell/.test(mat)&&!/sweat/.test(mat))nc='OUTERWEAR';  // 순수 우븐/플리스/폴리/나일론만 Outer (Sweat-Fleece는 Top)
           else nc='TOP';  // 스웻/코튼/저지/니트/불명 → 전부 Top
         }
         // ACC 탭은 신발 전용 → sub2가 신발류가 아니면 제외 (sub_category가 비어도 sub2로 판단)
@@ -6039,6 +6066,7 @@ renderHealth();
     bar.innerHTML=h;
   }
   function renderAll(){lightHealth();renderOverview();renderTrendGraph();renderSNS();renderBoard();}
+  window.renderBoard=renderBoard;
   window.__renderV12=renderAll;
   // ── loadData(URL 자동로드)가 채운 STATE.data를 그래프용 FILES로 주입하는 다리 ──
   window.__ingestFromState=function(dataObj){
@@ -6068,8 +6096,7 @@ renderHealth();
     const v=el.getAttribute('data-ovhatsub')||'ALL';
     window.OV_HATSUB=v;
     if(typeof STATE!=='undefined')STATE.hatsub=v;   // Image Board/SNS도 따라오게
-    if(hasData())renderAll();
-    if(typeof window.renderImageBoard==='function')window.renderImageBoard();   // 전역 Image Board 갱신
+    if(hasData())renderAll();   // renderAll이 renderBoard(=Image Board)까지 다시 그림
     if(window.PROP_RENDER)window.PROP_RENDER();
   });
   document.addEventListener('click',e=>{

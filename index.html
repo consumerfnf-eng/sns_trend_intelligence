@@ -3834,10 +3834,14 @@ renderHealth();
       if(parts.length<1&&fit&&!isDefault(fit,['regular','standard'])&&!inBase(fit))parts.push(String(fit).replace(/ fit$/i,''));
       if(parts.length<1&&col&&/hood/i.test(col))parts.push('Hooded');
     } else if(isCoat){
-      // 퍼트림 → 길이/fit → material → collar/pattern
+      // 퍼트림 → 길이/fit → material → collar/pattern (원래대로, 단 crop만 Mini로 표기)
       if(hasFurTrim)parts.push(/faux/i.test(trim)?'Faux Fur-trim':'Fur-trim');
       if(parts.length<1&&blen&&/long|longline|maxi/i.test(blen)&&!inBase('long'))parts.push('Long');
-      else if(parts.length<1&&fit&&!isDefault(fit,['regular','standard'])&&!inBase(fit))parts.push(String(fit).replace(/ fit$/i,''));
+      else if(parts.length<1&&fit&&!isDefault(fit,['regular','standard'])&&!inBase(fit)){
+        let fv=String(fit).replace(/ fit$/i,'');
+        if(/crop/i.test(fv))fv='Mini';   // Crop → Mini로만 표기 통일
+        parts.push(fv);
+      }
       if(parts.length<1&&mat&&!isDefault(mat,['cotton','polyester','none'])&&!inBase(mat))parts.push(mat);
       if(parts.length<1&&pat&&!isDefault(pat,['solid','none'])&&!inBase(pat))parts.push(String(pat).split('/')[0].trim());
       if(parts.length<1&&col&&/double.?breast/i.test(col))parts.push('Double-breasted');
@@ -3999,7 +4003,7 @@ renderHealth();
     } else if(isSleeveless){
       // Strap/Neck → Fit → Material/Pattern
       if(shd&&/halter|one.?shoulder|racerback/i.test(shd))parts.push(/halter/i.test(shd)?'Halter':/one/i.test(shd)?'One-shoulder':'Racerback');
-      if(parts.length<1&&nk&&!isDef(nk,['crew','none','standard'])&&!inBase(clean(nk))){const n=clean(nk);parts.push(n==='V'?'V-neck':n+'-neck');}
+      if(parts.length<1&&nk&&!isDef(nk,['crew','none','standard'])&&!inBase(clean(nk))){const n=clean(nk);if(!/shoulder|halter|strapless/i.test(n))parts.push(n==='V'?'V-neck':n+'-neck');else parts.push(n);}
       if(parts.length<1&&fit&&/cropped|longline|fitted/i.test(fit)&&!inBase(clean(fit)))parts.push(clean(fit));
       if(parts.length<1&&fabS&&/rib|mesh|lace|sheer/i.test(fabS))parts.push(String(fabS).split('/')[0].trim());
       if(parts.length<1){const p=normP(pat);if(p&&!inBase(p))parts.push(p);}
@@ -4014,7 +4018,7 @@ renderHealth();
       const rawName=String((r&&r.sub2)||'').toLowerCase();
       const nkParts=[], detParts=[];
       // 1. Neckline (Crew=기본 생략)
-      if(nk&&!isDef(nk,['crew','none','standard','round'])&&!inBase(clean(nk))){const n=clean(nk);nkParts.push(n==='V'?'V-neck':n==='Scoop'?'Scoop-neck':n==='U'?'U-neck':n==='Boat'?'Boat-neck':n==='Square'?'Square-neck':n==='Cowl'?'Cowl-neck':n==='Halter'?'Halter':n+'-neck');}
+      if(nk&&!isDef(nk,['crew','none','standard','round'])&&!inBase(clean(nk))){const n=clean(nk);nkParts.push(n==='V'?'V-neck':n==='Scoop'?'Scoop-neck':n==='U'?'U-neck':n==='Boat'?'Boat-neck':n==='Square'?'Square-neck':n==='Cowl'?'Cowl-neck':n==='Halter'?'Halter':/shoulder|strapless/i.test(n)?n:n+'-neck');}
       else if(/boat neck/i.test(rawName))nkParts.push('Boat-neck');
       else if(/u-?neck/i.test(rawName))nkParts.push('U-neck');
       else if(/v-?neck/i.test(rawName))nkParts.push('V-neck');
@@ -4077,7 +4081,7 @@ renderHealth();
       if(len){const l=String(len).trim();if(!/^(none|unknown|regular)$/i.test(l)&&!inB(l))parts.push(l);}
       // 추가 태그: neckline → hemline → detail (silhouette/length 다음)
       let nk=pick(d.neckline);
-      if(nk){const n=String(nk).trim();if(!/^(none|crew|round|standard)$/i.test(n)&&!inB(n))parts.push(n==='V'?'V-neck':n==='U'?'U-neck':n==='Scoop'?'Scoop-neck':n+(/neck$/i.test(n)?'':'-neck'));}
+      if(nk){const n=String(nk).trim();if(!/^(none|crew|round|standard)$/i.test(n)&&!inB(n))parts.push(n==='V'?'V-neck':n==='U'?'U-neck':n==='Scoop'?'Scoop-neck':/shoulder|halter|strapless/i.test(n)?n:n+(/neck$/i.test(n)?'':'-neck'));}
       let hem=pick(d.hemline)||pick(d.dress_hemline);
       if(hem){const hh=String(hem).trim();if(!/^(none|straight|plain)$/i.test(hh)&&!inB(hh))parts.push(hh);}
       let det=pick(d.dress_detail)||pick(d.surface_finish);
@@ -4635,7 +4639,7 @@ renderHealth();
       if(len){const l=String(len).trim();if(!/^(none|unknown|regular)$/i.test(l)&&!inB(l))parts.push(l);}
       // 추가 태그: neckline → hemline → detail (silhouette/length 다음)
       let nk=pick(d.neckline);
-      if(nk){const n=String(nk).trim();if(!/^(none|crew|round|standard)$/i.test(n)&&!inB(n))parts.push(n==='V'?'V-neck':n==='U'?'U-neck':n==='Scoop'?'Scoop-neck':n+(/neck$/i.test(n)?'':'-neck'));}
+      if(nk){const n=String(nk).trim();if(!/^(none|crew|round|standard)$/i.test(n)&&!inB(n))parts.push(n==='V'?'V-neck':n==='U'?'U-neck':n==='Scoop'?'Scoop-neck':/shoulder|halter|strapless/i.test(n)?n:n+(/neck$/i.test(n)?'':'-neck'));}
       let hem=pick(d.hemline)||pick(d.dress_hemline);
       if(hem){const hh=String(hem).trim();if(!/^(none|straight|plain)$/i.test(hh)&&!inB(hh))parts.push(hh);}
       let det=pick(d.dress_detail)||pick(d.surface_finish);
@@ -4954,9 +4958,13 @@ renderHealth();
         'Harrington':'Blouson Jacket','Harrington Jacket':'Blouson Jacket',
         'Single / Double Overcoat':'Overcoat','Single Overcoat':'Overcoat','Double Overcoat':'Overcoat',
         'Safari Jacket / Field Jacket':'Field Jacket','Safari Jacket':'Field Jacket',
-        'Fleece':'Fleece Jacket',
+        'Fleece':'Fleece Jacket','Fleece Pullover':'Fleece Jacket',
         'Trucker / Workwear':'Trucker Jacket','Trucker':'Trucker Jacket',
         'Coach Jacket / Skacket':'Coach Jacket','Skacket':'Coach Jacket',
+        // ── 중복 통일 (추가) ──
+        'Other Outer':'Other Jacket','Other Outerwear':'Other Jacket',   // Other 통일
+        'Shell Jacket':'Windbreaker','Shell':'Windbreaker','Windbreaker Jacket':'Windbreaker',   // 바람막이 통일
+        'Duffle':'Duffle Coat','Duffel Coat':'Duffle Coat','Duffle Jacket':'Duffle Coat',   // 더플 통일
       };
       if(SUB2_ALIAS[s2]) s2=SUB2_ALIAS[s2];
       // ── Coach/Blouson/Bomber 칼라 기반 재분류 (포인트칼라=Coach, 스탠드=Blouson, 립넥=Bomber) ──

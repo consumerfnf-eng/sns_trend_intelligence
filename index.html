@@ -2575,14 +2575,12 @@ function aggregateBySubcategory(items){
     let _nk=item.neckline;
     if(_nk){const nn=String(_nk).trim();
       if(/^(off-?shoulder|cold-?shoulder|one-?shoulder)$/i.test(nn)){
-        bump('shoulder', nn.replace(/\s+/,'-').replace(/^off-?shoulder$/i,'Off-shoulder').replace(/^cold-?shoulder$/i,'Cold-shoulder').replace(/^one-?shoulder$/i,'One-shoulder'));
+        bump('shoulder', 'Off-shoulder');
       }else bump('neckline', _nk);
     }
     // shoulder_design 축도 통일해서 같은 shoulder 축에
     if(item.shoulder_design){const sm=String(item.shoulder_design).trim();
-      if(/^off.?shoulder$/i.test(sm))bump('shoulder','Off-shoulder');
-      else if(/^cold.?shoulder$/i.test(sm))bump('shoulder','Cold-shoulder');
-      else if(/^one.?shoulder$/i.test(sm))bump('shoulder','One-shoulder');
+      if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder/i.test(sm))bump('shoulder','Off-shoulder');
     }
     bump('sleeve', item.sleeve);
     bump('closure', item.closure);
@@ -5279,9 +5277,7 @@ renderHealth();
         // ── shoulder_design 값 통일 (하이픈 표기) ──
         if(axis==='shoulder_design'){
           const sm=String(val).trim();
-          if(/^off.?shoulder$/i.test(sm))val='Off-shoulder';
-          else if(/^cold.?shoulder$/i.test(sm))val='Cold-shoulder';
-          else if(/^one.?shoulder$/i.test(sm))val='One-shoulder';
+          if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder/i.test(sm))val='Off-shoulder';
           else if(/^standard$/i.test(sm))return;   // 기본값 제외
           vn=String(val).toLowerCase().trim();
         }
@@ -6105,8 +6101,18 @@ renderHealth();
       const cat=normCat(r.category);if(!cat)return;
       const ef=eff(r);
       const excluded=!ef;
-      if(OV_CAT!=='ALL'&&!excluded&&ef.category!==cat)return;  // 수정된 카테고리로 이동한 건 해당 탭에서
-      if(OV_CAT!=='ALL'&&cat!==OV_CAT&&(!ef||ef.category!==OV_CAT))return;
+      const effCat=ef?ef.category:cat;
+      // ── HAT/SHOE 탭: HAT+ACC 둘 다 포함 + 서브탭(OV_HATSUB) 필터 ──
+      if(OV_CAT==='HAT'){
+        const isHatShoe=(effCat==='HAT'||effCat==='ACC');
+        if(!isHatShoe)return;
+        const hs=window.OV_HATSUB||'ALL';
+        if(hs==='HAT'&&effCat!=='HAT')return;
+        if(hs==='SHOE'&&effCat!=='ACC')return;
+      } else {
+        if(OV_CAT!=='ALL'&&!excluded&&ef.category!==cat)return;  // 수정된 카테고리로 이동한 건 해당 탭에서
+        if(OV_CAT!=='ALL'&&cat!==OV_CAT&&(!ef||ef.category!==OV_CAT))return;
+      }
       const g=rowGender(r);
       if(OV_GENDER!=='ALL'&&g&&g!==OV_GENDER)return;
       let thumb='',purl='';try{const im=JSON.parse(r.images||'[]')[0];if(im){thumb=(im.thumbUrl||im.localPath)||'';purl=im.productUrl||'';if(thumb&&!thumb.startsWith('data:'))thumb=String(thumb).replace(/\\\\/g,'/');}}catch(e){}
@@ -6155,6 +6161,8 @@ renderHealth();
     const tabs=`<div class="ib-tabs">
       <span class="ib-tab ${IB_SRC==='sns'?'on':''}" data-ibsrc="sns">SNS</span>
       <span class="ib-tab ${IB_SRC==='musinsa'?'on':''}" data-ibsrc="musinsa">Musinsa</span></div>`;
+    const hatsubBar=OV_CAT==='HAT'?`<div class="ib-tabs" style="margin-top:8px">
+      ${['ALL','HAT','SHOE'].map(v=>`<span class="ib-tab ${(window.OV_HATSUB||'ALL')===v?'on':''}" data-ovhatsub="${v}">${v==='ALL'?'All':v==='HAT'?'Hat':'Shoe'}</span>`).join('')}</div>`:'';
     const actions=`<span class="ib-actions"><button class="ib-btn ib-btn3" data-ibrefresh>🔄 다른 사진</button> <button class="ib-btn" data-ibexportcsv>수정 반영 CSV 저장</button> <button class="ib-btn ib-btn2" data-ibexport>메모만(overrides)</button> <label class="ib-btn ib-btn2">Import<input type="file" accept=".csv" data-ibimport hidden></label></span>`;
     const bar=wantSNS?`<div class="ib-bar">
       <span class="ib-baret">Instagram 기본 = 여성 · 사진의 M/W로 교정 · ✕ 제외 · 드롭다운+적용으로 분류 수정 · ${ovN}건 수정됨</span>
@@ -6163,7 +6171,7 @@ renderHealth();
       <span class="ib-baret">Musinsa 상품 · ✕ 제외 · 드롭다운+적용으로 분류 수정 · ${ovN}건 수정됨</span>
       ${actions}
     </div>`;
-    if(!cards.length){el.innerHTML=tabs+bar+`<div class="empty"><div class="empty-mark">◫</div><div class="empty-title">Image Board · ${wantSNS?'SNS':'Musinsa'}</div><div class="empty-sub">${wantSNS?'load instagram CSV with thumbnails':'load musinsa_signals.csv (top50 with images)'} · pick a category above</div></div>`;wireBoard();return;}
+    if(!cards.length){el.innerHTML=tabs+hatsubBar+bar+`<div class="empty"><div class="empty-mark">◫</div><div class="empty-title">Image Board · ${wantSNS?'SNS':'Musinsa'}</div><div class="empty-sub">${wantSNS?'load instagram CSV with thumbnails':'load musinsa_signals.csv (top50 with images)'} · pick a category above</div></div>`;wireBoard();return;}
     cards.sort((a,b)=>b.strength-a.strength);
     const byCat={},order=[];
     cards.forEach(c=>{(byCat[c.cat]=byCat[c.cat]||[]).push(c);});
@@ -6178,7 +6186,7 @@ renderHealth();
         byCat[c]=byCat[c].map((card,i)=>({card,r:seededRand(i)})).sort((a,b)=>a.r-b.r).map(x=>x.card);
       });
     }
-    let h=tabs+bar+`<div class="ov-head">Image Board — ${wantSNS?'SNS':'Musinsa'}${OV_CAT!=='ALL'?' · '+esc(OV_CAT):''}${OV_GENDER!=='ALL'?' · '+(OV_GENDER==='여자'?'Women':'Men'):''}</div><div class="ov-sub">${wantSNS?'SNS photos · M/W toggle per photo':'Musinsa products · click to open'}</div>`;
+    let h=tabs+hatsubBar+bar+`<div class="ov-head">Image Board — ${wantSNS?'SNS':'Musinsa'}${OV_CAT!=='ALL'?' · '+esc(OV_CAT):''}${OV_GENDER!=='ALL'?' · '+(OV_GENDER==='여자'?'Women':'Men'):''}</div><div class="ov-sub">${wantSNS?'SNS photos · M/W toggle per photo':'Musinsa products · click to open'}</div>`;
     order.forEach(c=>{
       h+=`<div class="ib-cat">${esc(c)} <span class="ib-cn">${byCat[c].length}</span></div><div class="ib-grid">`;
       byCat[c].slice(0,perCat).forEach(card=>{
@@ -6475,36 +6483,35 @@ renderHealth();
           }).slice(0,8);
       };
       const getDet=(r,ax)=>{let d={};try{d=JSON.parse(r.details||'{}');}catch(e){}let v=d[ax];v=Array.isArray(v)?v[0]:v;
-        // shoulder 계열 통합: Cold-shoulder/One-shoulder → Off-shoulder
-        if(v&&/shoulder/i.test(String(v))&&/^(cold-?shoulder|one-?shoulder|off-?shoulder)$/i.test(String(v).trim()))v='Off-shoulder';
+        if(v==null)return v;
+        const raw=String(v).trim();
+        // neckline 축: shoulder류 제외(shoulder 축에서만) + V→V-neck 통일
+        if(ax==='neckline'){
+          if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder|halter|strapless/i.test(raw))return null;
+          if(/^v$/i.test(raw))return 'V-neck'; if(/^u$/i.test(raw))return 'U-neck';
+          if(/^scoop$/i.test(raw))return 'Scoop-neck'; if(/^boat$/i.test(raw))return 'Boat-neck';
+          if(/^square$/i.test(raw))return 'Square-neck'; if(/^cowl$/i.test(raw))return 'Cowl-neck';
+          if(/^funnel( neck)?$/i.test(raw))return 'Funnel-neck'; if(/^mock.?neck$/i.test(raw))return 'Mock-neck';
+          return v;
+        }
+        // shoulder_design 축: 이미지 구분 어려움 → 전부 Off-shoulder로 통합
+        if(ax==='shoulder_design'||ax==='shoulder'){
+          if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder/i.test(raw))return 'Off-shoulder';
+          if(/^standard$/i.test(raw))return null;
+          return v;
+        }
         return v;};
 
       const extra={};
       // ── TOP: 넥라인 유지 + (슬리브 대신) 숄더 디자인 그래프 ──
       if(NORM==='TOP'){
-        extra.neckline=axisDist(rows, r=>{
-          let v=getDet(r,'neckline')||getDet(r,'collar');
-          if(!v)return null;
-          // off/cold/one-shoulder/halter/strapless는 넥라인이 아니라 shoulder 축 → NECKLINE 도넛에서 제외
-          if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder|halter|strapless/i.test(String(v)))return null;
-          // 넥라인 표기 통일 (V→V-neck 등)
-          const n=String(v).trim();
-          if(/^v$/i.test(n))return 'V-neck';if(/^u$/i.test(n))return 'U-neck';
-          if(/^scoop$/i.test(n))return 'Scoop-neck';if(/^boat$/i.test(n))return 'Boat-neck';
-          if(/^square$/i.test(n))return 'Square-neck';if(/^cowl$/i.test(n))return 'Cowl-neck';
-          return v;
-        });
-        // 숄더 디자인 분포 (Off-shoulder/One-shoulder/Cold-shoulder/Halter 등) — 표기 통일
+        extra.neckline=axisDist(rows, r=>getDet(r,'neckline'));
+        // 숄더 디자인 분포 (Off-shoulder/One-shoulder/Cold-shoulder — 구분 유지)
         extra.shoulder=axisDist(rows, r=>{
           let v=getDet(r,'shoulder_design')||getDet(r,'shoulder');
-          // neckline에 숄더 정보가 들어간 경우도 흡수
-          if(!v){let nk=getDet(r,'neckline');if(nk&&/shoulder|halter|off|one|cold|drop/i.test(String(nk)))v=nk;}
-          if(!v)return null;
-          const s=String(v).trim();
-          if(/^off.?shoulder$/i.test(s))return 'Off-shoulder';
-          if(/^cold.?shoulder$/i.test(s))return 'Cold-shoulder';
-          if(/^one.?shoulder$/i.test(s))return 'One-shoulder';
-          if(/^standard$/i.test(s))return null;
+          // neckline에 shoulder 정보가 들어간 경우도 흡수 (전부 Off-shoulder로)
+          if(!v){let d={};try{d=JSON.parse(r.details||'{}');}catch(e){}let nk=Array.isArray(d.neckline)?d.neckline[0]:d.neckline;
+            if(nk&&/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder/i.test(String(nk)))v='Off-shoulder';}
           return v;
         });
       }

@@ -2569,13 +2569,26 @@ function aggregateBySubcategory(items){
     bump('graphic', item.graphic);
     bump('wash', item.wash);
     bump('silhouette', item.silhouette || item.fit);
-    bump('neckline', item.neckline);
+    // neckline: off/cold/one-shoulder는 shoulder 축으로 통일 이동, V→V-neck 등
+    let _nk=item.neckline;
+    if(_nk){const nn=String(_nk).trim();
+      if(/^(off-?shoulder|cold-?shoulder|one-?shoulder)$/i.test(nn)){
+        bump('shoulder', nn.replace(/\s+/,'-').replace(/^off-?shoulder$/i,'Off-shoulder').replace(/^cold-?shoulder$/i,'Cold-shoulder').replace(/^one-?shoulder$/i,'One-shoulder'));
+      }else bump('neckline', _nk);
+    }
+    // shoulder_design 축도 통일해서 같은 shoulder 축에
+    if(item.shoulder_design){const sm=String(item.shoulder_design).trim();
+      if(/^off.?shoulder$/i.test(sm))bump('shoulder','Off-shoulder');
+      else if(/^cold.?shoulder$/i.test(sm))bump('shoulder','Cold-shoulder');
+      else if(/^one.?shoulder$/i.test(sm))bump('shoulder','One-shoulder');
+    }
     bump('sleeve', item.sleeve);
     bump('closure', item.closure);
     // material: distinctive 만
-    const mat = item.material
+    let mat = item.material
              || (Array.isArray(item.material_hints) && item.material_hints[0]);
-    if(mat && /denim|leather|knit|tweed|velvet|silk|linen|fleece|corduroy|tulle|lace/i.test(mat)){
+    if(mat){const mm=String(mat).trim();if(/^sweat[\/\-]?fleece$/i.test(mm)||/^sweat$/i.test(mm))mat='Sweat-Fleece';else if(/^faux[\/\-]?fur$/i.test(mm))mat='Faux Fur';}
+    if(mat && /denim|leather|knit|tweed|velvet|silk|linen|fleece|corduroy|tulle|lace|sweat/i.test(mat)){
       bump('material', mat);
     }
     // color: 첫 번째만
@@ -4834,7 +4847,7 @@ renderHealth();
     BOTTOM:['Pants','Denim','Shorts','Skirt / Skort','Leggings'],
     OUTERWEAR:['Jacket','Padding / Down','Coat','Active','Warm-up & Heavy','Vest'],
     DRESS:['Shirt Dress','Slip Dress','Tank Dress','T-shirt Dress','Knit Dress','Bodycon Dress','Shift Dress','A-line / Flare Dress','Wrap Dress','Tailored / Blazer Dress','Dress'],
-    BAG:['Shoulder Bag','Crossbody Bag','Tote bag','Backpacks','Clutch / Pouch','Unknown'],
+    BAG:['Shoulder','Tote','Crossbody','Backpack','Top Handle','Pouch','Clutch','Duffle'],
     HAT:['Caps','Beanie / Soft','Brimmed Hats','Seasonal','ACC'],
     SHOES:['Sneakers','Boots','Flat / Heels','Sandals / Slides'],
     ACC:['Sneakers','Boots','Flat / Heels','Sandals / Slides']
@@ -4842,8 +4855,15 @@ renderHealth();
   const SUB_LABEL={'Sweat / Hood':'Sweat/Hood','Tank / Bra top':'Sleeveless/Tank','Shirts / Blouse':'Shirts','Skirt / Skort':'Skirt','Warm-up & Heavy':'Fur/Heavy','Padding / Down':'Padding','Flat / Heels':'Flat/Heels','Sandals / Slides':'Sandals','Beanie / Soft':'Beanie','Brimmed Hats':'Brim','Casual / Daily Dress':'Casual'};
   function subChipsHTML(){
     if(OV_CAT==='ALL')return '';
-    // HAT/SHOE 탭은 세부 Sub 필터 없이 All만 (칩 자체를 숨김)
-    if(OV_CAT==='HAT'||OV_CAT==='ACC')return '';
+    // HAT/SHOE 탭은 [All][Hat][Shoe] 서브탭으로 전환
+    if(OV_CAT==='HAT'||OV_CAT==='ACC'){
+      const cur=window.OV_HATSUB||'ALL';
+      return `<div class="ov-sub2row"><span class="ov-lvllbl">Sub</span>`+
+        `<span class="ov-sub2 ${cur==='ALL'?'on':''}" data-ovhatsub="ALL">All</span>`+
+        `<span class="ov-sub2 ${cur==='HAT'?'on':''}" data-ovhatsub="HAT">Hat</span>`+
+        `<span class="ov-sub2 ${cur==='SHOE'?'on':''}" data-ovhatsub="SHOE">Shoe</span>`+
+        `</div>`;
+    }
     // Category 레벨에서는 Sub 칩 숨김 — ALL만 표시
     if(OV_LEVEL==='sub_category')return '';
     const present=new Set();
@@ -5042,6 +5062,13 @@ renderHealth();
         else if(/sleeveless/.test(sl))s2='Sleeveless Tank';
         else s2='Short Sleeve T';   // Short/Elbow/Cap/불명 → Short Sleeve T
       }
+      // ── 모순 교정: Short/Long Sleeve T인데 실제 sleeveless/camisole 끈이면 Sleeveless Tank로 ──
+      if(/^(short|long) sleeve t$/i.test(s2)){
+        let sl='',strap='';try{const dd=JSON.parse(r.details||'{}');
+          let sv=dd.sleeve_length;sl=String(Array.isArray(sv)?sv[0]:sv||'').toLowerCase();
+          let st=dd.strap_style;strap=String(Array.isArray(st)?st[0]:st||'').toLowerCase();}catch(e){}
+        if(/sleeveless/.test(sl)||/camisole|spaghetti|halter|tube|strapless/.test(strap))s2='Sleeveless Tank';
+      }
       // ── Layered T 승격: T-shirt인데 construction=Layered/Mock-layer면 Item을 Layered T로 ──
       if(/short sleeve t|long sleeve t|t-shirt/i.test(s2)){
         let con='';try{const dd=JSON.parse(r.details||'{}');let cv=dd.construction;con=String(Array.isArray(cv)?cv[0]:cv||'').toLowerCase();}catch(e){}
@@ -5136,7 +5163,7 @@ renderHealth();
       if(snsOnly&&!SNS.has(sk))return;
       const ef=eff(r);if(!ef)return;          // 제외된 사진
       const cat=ef.category;if(!cat)return;
-      if(OV_CAT!=='ALL'&&cat!==OV_CAT)return;
+      if(OV_CAT!=='ALL'){if(OV_CAT==='HAT'){if(cat!=='HAT'&&cat!=='ACC')return;const _hs=window.OV_HATSUB||'ALL';if(_hs==='HAT'&&cat!=='HAT')return;if(_hs==='SHOE'&&cat!=='ACC')return;}else if(cat!==OV_CAT)return;}
       if(OV_SUB!=='ALL'&&ef.sub_category!==OV_SUB)return;
       // Bottom sub 필터일 때 category가 BOTTOM이 아닌 행 제외 (Top/Outer 오염 방지)
       if(OV_SUB!=='ALL'&&['Pants','Denim','Shorts','Skirt / Skort','Leggings','Skirt+Pants'].includes(OV_SUB)&&cat!=='BOTTOM')return;
@@ -5159,9 +5186,45 @@ renderHealth();
       const _lbl=label.toLowerCase();
       const addax=(axis,val)=>{
         if(!val)return;
-        const vn=String(val).toLowerCase().trim();
+        let vn=String(val).toLowerCase().trim();
         // 기본값·미관측·의미없는 값 제외
         if(/^(solid|none|regular|standard|mid|not observable|unknown|n\/a|na|basic|null)$/.test(vn))return;
+        // ── 카테고리-축 정합성: 오염 축 차단 (아우터/상의에 하의축, 하의에 상의축 등) ──
+        const BOTTOM_AX=['leg_shape','leg_width','waist_rise','rise','bottom_length','pants_detail','skirt_length','skirt_silhouette'];
+        const TOP_AX=['neckline','neckline_depth','sleeve_length','sleeve_shape','shoulder_design','placket','collar'];
+        if(cat==='OUTERWEAR'||cat==='TOP'){ if(BOTTOM_AX.includes(axis))return; }
+        if(cat==='BOTTOM'){ if(TOP_AX.includes(axis))return; }
+        if(cat==='BAG'||cat==='ACC'||cat==='HAT'){ if(BOTTOM_AX.includes(axis)||TOP_AX.includes(axis))return; }
+        // ── 넥라인 값 정규화: V→V-neck 등 (V/V-neck 중복 방지) ──
+        if(axis==='neckline'){
+          const nn=String(val).trim();
+          if(/^v$/i.test(nn))val='V-neck';else if(/^u$/i.test(nn))val='U-neck';
+          else if(/^scoop$/i.test(nn))val='Scoop-neck';else if(/^boat$/i.test(nn))val='Boat-neck';
+          else if(/^square$/i.test(nn))val='Square-neck';else if(/^cowl$/i.test(nn))val='Cowl-neck';
+          else if(/^funnel( neck)?$/i.test(nn))val='Funnel-neck';
+          else if(/^mock.?neck$/i.test(nn))val='Mock-neck';
+          else if(/^crew$/i.test(nn))val='Crew';else if(/^round$/i.test(nn))return;
+          // off/cold/one-shoulder는 넥라인이 아니라 shoulder_design 축으로 이동
+          if(/^(off-?shoulder|cold-?shoulder|one-?shoulder|strapless|halter)$/i.test(nn)){axis='shoulder_design';}
+          vn=String(val).toLowerCase().trim();
+        }
+        // ── material 값 통일: Sweat/Fleece → Sweat-Fleece 등 (표기 중복 방지) ──
+        if(axis==='material'){
+          const mm=String(val).trim();
+          if(/^sweat[\/\-]?fleece$/i.test(mm))val='Sweat-Fleece';
+          else if(/^faux[\/\-]?fur$/i.test(mm))val='Faux Fur';
+          else if(/^sweat$/i.test(mm))val='Sweat-Fleece';
+          vn=String(val).toLowerCase().trim();
+        }
+        // ── shoulder_design 값 통일 (하이픈 표기) ──
+        if(axis==='shoulder_design'){
+          const sm=String(val).trim();
+          if(/^off.?shoulder$/i.test(sm))val='Off-shoulder';
+          else if(/^cold.?shoulder$/i.test(sm))val='Cold-shoulder';
+          else if(/^one.?shoulder$/i.test(sm))val='One-shoulder';
+          else if(/^standard$/i.test(sm))return;   // 기본값 제외
+          vn=String(val).toLowerCase().trim();
+        }
         // sleeve_length 모순 방지: Short/Long Sleeve T 버킷에 반대 소매 집계 안 함
         if(axis==='sleeve_length'){
           if(_lbl.includes('short')&&vn.includes('long'))return;
@@ -5411,7 +5474,7 @@ renderHealth();
     FILES.forEach(f=>f.rows.forEach(r=>{
       if(typeof STATE!=="undefined"&&STATE.seasonCode){var _sc=(r.season_code||"").trim();if(_sc&&_sc!==STATE.seasonCode)return;}
       const cat=normCat(r.category);if(!cat)return;
-      if(OV_CAT!=='ALL'&&cat!==OV_CAT)return;
+      if(OV_CAT!=='ALL'){if(OV_CAT==='HAT'){if(cat!=='HAT'&&cat!=='ACC')return;const _hs=window.OV_HATSUB||'ALL';if(_hs==='HAT'&&cat!=='HAT')return;if(_hs==='SHOE'&&cat!=='ACC')return;}else if(cat!==OV_CAT)return;}
       if(OV_GENDER!=='ALL'){const g=rowGender(r);if(g&&g!==OV_GENDER)return;}
       const sub2=(r.sub2||'').trim(),sub1=(r.sub_category||'').trim();
       const _SKIP_SUB1b=new Set(["T-shirts","Sweat / Hood","Knitwear","Shirts / Blouse","Tank / Bra top","Pants","Shorts","Skirt / Skort","Leggings","Skirt+Pants","Jacket","Coat","Active","Padding / Down","Warm-up & Heavy","Vest","Casual / Daily Dress","Knit","Feminine","Handheld","Shoulder","Crossbody","Tote","Backpack","Seasonal","Clutch / Pouch","Sneakers","Flat / Heels","Sandals / Slides","Boots","Caps","Beanie / Soft","Brimmed Hats","ACC","Top","Bottom","Swimwear"]);
@@ -5550,7 +5613,7 @@ renderHealth();
     const present=new Set(FILES.flatMap(f=>f.rows.map(r=>normCat(r.category)).filter(Boolean)));
     const cats=CAT_ORDER.filter(c=>present.has(c));
     if(!cats.length)return;
-    const show=(OV_CAT==='ALL')?cats:(OV_CAT==='HAT')?cats.filter(c=>c==='HAT'||c==='ACC'):cats.filter(c=>c===OV_CAT);
+    const show=(OV_CAT==='ALL')?cats:(OV_CAT==='HAT')?cats.filter(c=>{const _hs=window.OV_HATSUB||'ALL';if(_hs==='HAT')return c==='HAT';if(_hs==='SHOE')return c==='ACC';return c==='HAT'||c==='ACC';}):cats.filter(c=>c===OV_CAT);
     const LVLNAME={sub_category:'Category',sub2:'Item',detail:'Detail'};
     let h=`<div class="tg-head">Trend Graph${OV_CAT!=='ALL'?' — '+esc(OV_CAT==='HAT'?'HAT/SHOE':OV_CAT):''}</div><div class="tg-sub">${LVLNAME[OV_LEVEL]||'Item'} · color · detail distribution${OV_CAT==='ALL'?' (all categories)':''}</div>`;
     // Basic 숨김 토글 (Outer/Top/Bottom Detail 레벨에서 노출)
@@ -5844,7 +5907,12 @@ renderHealth();
     window.OV_ITEM='ALL';   // Sub 바꾸면 아이템 필터 해제
     if(hasData())renderAll();if(window.PROP_RENDER)window.PROP_RENDER();
   });
-  // Data Health: 파일 ✕ 제거
+  // HAT/SHOE 서브탭 (All/Hat/Shoe)
+  document.addEventListener('click',e=>{
+    const el=e.target.closest('[data-ovhatsub]');if(!el)return;
+    window.OV_HATSUB=el.getAttribute('data-ovhatsub')||'ALL';
+    if(hasData())renderAll();if(window.PROP_RENDER)window.PROP_RENDER();
+  });
   document.addEventListener('click',e=>{
     const x=e.target.closest('[data-rmfile]');if(!x)return;
     const i=+x.getAttribute('data-rmfile');
@@ -6088,6 +6156,7 @@ renderHealth();
     window.OV_ITEM='ALL';   // 아이템 필터도 초기화
     // HAT/ACC는 Detail 레벨 없음 → detail이면 item으로
     if((OV_CAT==='HAT'||OV_CAT==='ACC')&&OV_LEVEL==='detail'){OV_LEVEL='sub2';window.OV_LEVEL='sub2';}
+    window.OV_HATSUB='ALL';   // 카테고리 바뀌면 HAT/SHOE 서브탭 초기화
     document.querySelectorAll('#catChips .chip').forEach(x=>x.classList.toggle('on',x===c));
     if(hasData())renderAll();
     if(window.PROP_RENDER)window.PROP_RENDER();
@@ -6319,11 +6388,15 @@ renderHealth();
             colors:_colorsOf(pantsRows),
             // 핏 그래프
             fit:axisDist(pantsRows, r=>{
-              let v=getDet(r,'fit');
-              if(v)return String(v).replace(/ Fit$/,'');
-              const s2=(eff(r)?.sub2||'');
-              const fm=s2.match(/^(Wide|Baggy|Skinny|Straight|Tapered|Barrel|Flare|Bootcut|Slim)/i);
-              return fm?fm[1]:null;
+              let raw=getDet(r,'fit');
+              if(!raw){const s2=(eff(r)?.sub2||'');const fm=s2.match(/^(Wide|Baggy|Skinny|Straight|Tapered|Barrel|Balloon|Horseshoe|Curved|Flare|Bootcut|Slim|Relaxed)/i);raw=fm?fm[1]:null;}
+              if(!raw)return null;
+              const f=String(raw).replace(/ Fit$/,'').toLowerCase();
+              // Curved 계열 통합: Curved/Barrel/Horseshoe/Balloon → Curved
+              if(/curved|barrel|balloon|horseshoe/.test(f))return 'Curved';
+              // Flared 계열 통합: Bootcut/Flare → Flared
+              if(/bootcut|flare/.test(f))return 'Flared';
+              return String(raw).replace(/ Fit$/,'');
             }),
             // 디테일 그래프 (Pintuck/Pleated/Cargo/Darted 등 — pants_detail만, 논데님 construction 제외)
             detail:axisDist(pantsRows, r=>{
@@ -6342,9 +6415,15 @@ renderHealth();
             // 핏 그래프 (Wide Denim → Wide)
             fit:axisDist(denimRows, r=>{
               const s2=(eff(r)?.sub2||'');
-              const fm=s2.match(/(Wide|Baggy|Skinny|Straight|Tapered|Barrel|Bootcut|Flare|Slim)/i);
-              if(fm)return fm[1];
-              return getDet(r,'fit')?String(getDet(r,'fit')).replace(/ Fit$/,''):null;
+              let raw=null;
+              const fm=s2.match(/(Wide|Baggy|Skinny|Straight|Tapered|Barrel|Balloon|Horseshoe|Curved|Bootcut|Flare|Slim|Relaxed)/i);
+              if(fm)raw=fm[1];
+              else{const fv=getDet(r,'fit');if(fv)raw=String(fv).replace(/ Fit$/,'');}
+              if(!raw)return null;
+              const f=String(raw).toLowerCase();
+              if(/curved|barrel|balloon|horseshoe/.test(f))return 'Curved';
+              if(/bootcut|flare/.test(f))return 'Flared';
+              return raw;
             }),
             // 워싱 그래프 (연청/중청/진청/흑청)
             wash:axisDist(denimRows, r=>{

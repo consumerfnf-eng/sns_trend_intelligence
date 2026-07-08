@@ -4584,6 +4584,60 @@ renderHealth();
   const FILES=[];
   const LP=["fit","pattern","insulation","construction","surface_finish","collar","neckline","closure","sleeve_shape","decoration","waist_rise","sleeve_length","hem_length"];
   const MAIN_AXES=["sleeve_length","neckline","neckline_depth","shoulder_design","collar","placket","body_length","sleeve_shape","pattern","fit","leg_shape","waist_rise","functional_style","hem_length","hem_style","wash","surface_finish","insulation","construction","silhouette","quilt_pattern","down_weight","carry_method","bag_type","bag_size","bag_structure","bag_geometry","bag_orientation","bag_closure","strap_style","bag_use_case","bag_surface","material","shoe_width","toe_style","heel_height"]; // 전 카테고리 축
+  // ── 축 값 정규화 (Detail 도넛/Trend Graph 공통) — off-shoulder 통합, collar/fit/material 통일 ──
+  window.normAxisVal=function(ax, v){
+    if(v==null)return null;
+    const raw=String(v).trim();
+    if(ax==='neckline'){
+      if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder|halter|strapless/i.test(raw))return null;
+      if(/^v$/i.test(raw))return 'V-neck'; if(/^u$/i.test(raw))return 'U-neck';
+      if(/^scoop$/i.test(raw))return 'Scoop-neck'; if(/^boat$/i.test(raw))return 'Boat-neck';
+      if(/^square$/i.test(raw))return 'Square-neck'; if(/^cowl$/i.test(raw))return 'Cowl-neck';
+      if(/^funnel( neck)?$/i.test(raw))return 'Funnel-neck'; if(/^mock.?neck$/i.test(raw))return 'Mock-neck';
+      return v;
+    }
+    if(ax==='shoulder_design'||ax==='shoulder'){
+      if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder/i.test(raw))return 'Off-shoulder';
+      if(/^standard$/i.test(raw))return null;
+      return v;
+    }
+    if(ax==='collar'){
+      if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder|halter|strapless/i.test(raw))return null;
+      if(/^(none|없음)$/i.test(raw))return null;
+      if(/^turtle.?neck$/i.test(raw))return 'Turtleneck';
+      if(/^mock.?neck$/i.test(raw))return 'Mock-neck';
+      if(/^funnel( neck)?$/i.test(raw))return 'Funnel Neck';
+      if(/^stand.?(up)?( collar)?$/i.test(raw))return 'Stand Collar';
+      if(/^shirt( collar)?$/i.test(raw))return 'Shirt Collar';
+      if(/^polo( collar)?$/i.test(raw))return 'Polo Collar';
+      if(/^cowl$/i.test(raw))return 'Cowl';
+      return v;
+    }
+    if(ax==='fit'||ax==='fit_ease'){
+      const f=raw.toLowerCase().replace(/ fit$/,'');
+      if(/^(fitted|slim|skinny|tight)$/.test(f))return 'Slim';
+      if(/^(oversized|boxy|baggy)$/.test(f))return 'Oversized';
+      if(/^(relaxed|loose)$/.test(f))return 'Relaxed';
+      if(/^(regular|standard|normal)$/.test(f))return 'Regular';
+      return v;
+    }
+    if(ax==='material'){
+      if(/^sweat[\/\-\s]?fleece$/i.test(raw)||/^sweat$/i.test(raw))return 'Sweat-Fleece';
+      if(/^(nylon|polyester|nylon[\/\-\s]polyester|poly|synthetic)$/i.test(raw))return 'Nylon/Polyester';
+      if(/^faux[\/\-\s]?fur$/i.test(raw))return 'Faux Fur';
+      if(/^(other|unknown|multi|fabric)$/i.test(raw))return 'Unknown';
+      return v;
+    }
+    if(ax==='sleeve_length'){const sv=raw.toLowerCase();
+      if(/sleeveless|민소매/.test(sv))return 'Sleeveless';
+      if(/3\/4|쿼터/.test(sv))return '3/4';
+      if(/^cap|캡/.test(sv))return 'Cap';
+      if(/short|반/.test(sv))return 'Short';
+      if(/long|긴/.test(sv))return 'Long';
+      return v;
+    }
+    return v;
+  };
   const BASEFIX={'Short':'Short Puffer','Long':'Long Puffer','Heavy':'Heavy Puffer','Lightweight':'Light Puffer'};
   let TG_CAT=null;
 
@@ -5399,7 +5453,7 @@ renderHealth();
       }}catch(e){}
     }));
     // 순위: Other 류는 뒤로 → posts 많은 순 → 소스 2개+ 우선 → strength
-    const isOther=x=>/\bother\b/i.test(x.label);
+    const isOther=x=>isOtherLabel(x.label);
     return [...T.values()].sort((a,b)=>
       (isOther(a)-isOther(b)) ||
       (b.posts-a.posts) ||
@@ -5562,16 +5616,13 @@ renderHealth();
       // 패턴 독립 수집 (Solid/None/무지 제외)
       let pv=d.pattern||r.pattern;
       (Array.isArray(pv)?pv:[pv]).forEach(x=>{if(x&&!/^(solid|none|무지|plain)$/i.test(String(x).trim()))pat.set(x,(pat.get(x)||0)+1);});
-      MAIN_AXES.forEach(ax=>{if(ax in d){(Array.isArray(d[ax])?d[ax]:[d[ax]]).forEach(v=>{if(v){
-        // sleeve_length 값 정규화: "Short Sleeves"/"Short Sleeve" → "Short" 등 (그래프 합산)
-        if(ax==='sleeve_length'){const sv=String(v).toLowerCase();
-          if(/sleeveless|민소매/.test(sv))v='Sleeveless';
-          else if(/3\/4|쿼터/.test(sv))v='3/4';
-          else if(/^cap|캡/.test(sv))v='Cap';
-          else if(/short|반/.test(sv))v='Short';
-          else if(/long|긴/.test(sv))v='Long';}
-        axes[ax].set(v,(axes[ax].get(v)||0)+1);
-      }});}});
+      MAIN_AXES.forEach(ax=>{if(ax in d){(Array.isArray(d[ax])?d[ax]:[d[ax]]).forEach(v=>{
+        // 축 값 정규화 (off-shoulder 통합, collar/fit/material/sleeve 통일) — Item 값과 일치시킴
+        v=window.normAxisVal(ax, v);
+        if(v){
+          axes[ax].set(v,(axes[ax].get(v)||0)+1);
+        }
+      });}});
     }));
     return {sub,color,pat,axes,total,skLen,skShape,skTot,dnFit,ndFit,dnTot,ndTot,dnWash,dnWashTot};
   }
@@ -5761,7 +5812,7 @@ renderHealth();
       const D=distFor(cat);
       const subTot=[...D.sub.values()].reduce((a,b)=>a+b,0);
       const colTot=[...D.color.values()].reduce((a,b)=>a+b.n,0);
-      const subE=[...D.sub.entries()].sort((a,b)=>(/\\bother\\b/i.test(a[0])-/\\bother\\b/i.test(b[0]))||(b[1]-a[1])).slice(0,10);
+      const subE=[...D.sub.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1])).slice(0,10);
       const colE=[...D.color.entries()].sort((a,b)=>cmpCount(a[0],a[1].n,b[0],b[1].n)).slice(0,12).map(([k,v])=>[k,v.n,v.hex]);
       const colHex={};colE.forEach(([k,n,hex])=>colHex[k]=hex);
       // 패턴 독립 섹션 (패턴 비율 15%↑ 일 때만 — 의미있는 카테고리)
@@ -5778,9 +5829,26 @@ renderHealth();
           </div>
         </div>`:'';
       // details 막대 (pattern 은 위 독립섹션으로 뺐으니 제외)
+      // ── 카테고리별 관련 축만 표시 (Knitwear에 toe_style 등 엉뚱한 축 제거) ──
+      const SHOE_AX=['shoe_width','toe_style','heel_height'];
+      const BAG_AX=['carry_method','bag_type','bag_size','bag_structure','bag_geometry','bag_orientation','bag_closure','strap_style','bag_use_case','bag_surface'];
+      const TOP_AX=['sleeve_length','neckline','neckline_depth','shoulder_design','collar','placket','body_length','sleeve_shape','fit','material','construction','surface_finish','silhouette'];
+      const BOTTOM_AX=['fit','leg_shape','waist_rise','functional_style','hem_length','hem_style','wash','material','surface_finish','silhouette'];
+      const OUTER_AX=['collar','closure','surface_finish','insulation','construction','silhouette','quilt_pattern','down_weight','material','fit','shoulder_design'];
+      const DRESS_AX=['sleeve_length','neckline','shoulder_design','collar','silhouette','hem_length','waist_rise','material','construction'];
+      function axAllowed(ax){
+        if(cat==='TOP')return TOP_AX.includes(ax);
+        if(cat==='BOTTOM')return BOTTOM_AX.includes(ax);
+        if(cat==='OUTERWEAR')return OUTER_AX.includes(ax);
+        if(cat==='DRESS')return DRESS_AX.includes(ax);
+        if(cat==='ACC')return SHOE_AX.includes(ax)||['material','surface_finish'].includes(ax);
+        if(cat==='BAG')return BAG_AX.includes(ax)||['material','surface_finish','pattern'].includes(ax);
+        return true;   // 그 외는 전부 (fallback)
+      }
       let dbars='';
       MAIN_AXES.forEach(ax=>{
         if(ax==='pattern'&&showPat)return;
+        if(!axAllowed(ax))return;   // 카테고리 무관 축 제거
         const m=D.axes[ax];if(!m||!m.size)return;
         const entries=[...m.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1]));
         dbars+=`<div class="tg-axis"><div class="axlbl">${ax.replace(/_/g,' ')}</div>${qbars(entries)}</div>`;
@@ -5911,7 +5979,7 @@ renderHealth();
       const cat=cv.getAttribute('data-cat'),kind=cv.getAttribute('data-kind');
       const D=distFor(cat);
       if(kind==='sub'){
-        const sub=[...D.sub.entries()].sort((a,b)=>(/\\bother\\b/i.test(a[0])-/\\bother\\b/i.test(b[0]))||(b[1]-a[1])).slice(0,10);
+        const sub=[...D.sub.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1])).slice(0,10);
         const bg=sub.map((x,i)=>radialGrad(cv,NEONPAL[i%NEONPAL.length]));
         charts.push(new Chart(cv,{type:'doughnut',data:{labels:sub.map(x=>x[0]),datasets:[{data:sub.map(x=>x[1]),backgroundColor:bg,borderWidth:2,borderColor:'#fff'}]},options:opt}));
       }else if(kind==='pattern'){
@@ -6548,54 +6616,7 @@ renderHealth();
           .sort((a,b)=>cmpCount(a.label,a.count,b.label,b.count)).slice(0,8);
       };
       const getDet=(r,ax)=>{let d={};try{d=JSON.parse(r.details||'{}');}catch(e){}let v=d[ax];v=Array.isArray(v)?v[0]:v;
-        if(v==null)return v;
-        const raw=String(v).trim();
-        // neckline 축: shoulder류 제외(shoulder 축에서만) + V→V-neck 통일
-        if(ax==='neckline'){
-          if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder|halter|strapless/i.test(raw))return null;
-          if(/^v$/i.test(raw))return 'V-neck'; if(/^u$/i.test(raw))return 'U-neck';
-          if(/^scoop$/i.test(raw))return 'Scoop-neck'; if(/^boat$/i.test(raw))return 'Boat-neck';
-          if(/^square$/i.test(raw))return 'Square-neck'; if(/^cowl$/i.test(raw))return 'Cowl-neck';
-          if(/^funnel( neck)?$/i.test(raw))return 'Funnel-neck'; if(/^mock.?neck$/i.test(raw))return 'Mock-neck';
-          return v;
-        }
-        // shoulder_design 축: 이미지 구분 어려움 → 전부 Off-shoulder로 통합
-        if(ax==='shoulder_design'||ax==='shoulder'){
-          if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder/i.test(raw))return 'Off-shoulder';
-          if(/^standard$/i.test(raw))return null;
-          return v;
-        }
-        // collar 축: shoulder류 제외 + Stand/Shirt/Turtleneck/Mock 표기 통일
-        if(ax==='collar'){
-          if(/off.?shoulder|cold.?shoulder|one.?shoulder|drop.?shoulder|halter|strapless/i.test(raw))return null;
-          if(/^(none|없음)$/i.test(raw))return null;
-          if(/^turtle.?neck$/i.test(raw))return 'Turtleneck';
-          if(/^mock.?neck$/i.test(raw))return 'Mock-neck';
-          if(/^funnel( neck)?$/i.test(raw))return 'Funnel Neck';
-          if(/^stand.?(up)?( collar)?$/i.test(raw))return 'Stand Collar';
-          if(/^shirt( collar)?$/i.test(raw))return 'Shirt Collar';
-          if(/^polo( collar)?$/i.test(raw))return 'Polo Collar';
-          if(/^cowl$/i.test(raw))return 'Cowl';
-          return v;
-        }
-        // fit 축: Fitted/Slim 통일, Oversized/Boxy 통일
-        if(ax==='fit'||ax==='fit_ease'){
-          const f=raw.toLowerCase().replace(/ fit$/,'');
-          if(/^(fitted|slim|skinny|tight)$/.test(f))return 'Slim';
-          if(/^(oversized|boxy|baggy)$/.test(f))return 'Oversized';
-          if(/^(relaxed|loose)$/.test(f))return 'Relaxed';
-          if(/^(regular|standard|normal)$/.test(f))return 'Regular';
-          return v;
-        }
-        // material 축: Sweat-Fleece / Nylon-Polyester 통일
-        if(ax==='material'){
-          if(/^sweat[\/\-\s]?fleece$/i.test(raw)||/^sweat$/i.test(raw))return 'Sweat-Fleece';
-          if(/^(nylon|polyester|nylon[\/\-\s]polyester|poly|synthetic)$/i.test(raw))return 'Nylon/Polyester';
-          if(/^faux[\/\-\s]?fur$/i.test(raw))return 'Faux Fur';
-          if(/^(other|unknown|multi|fabric)$/i.test(raw))return 'Unknown';
-          return v;
-        }
-        return v;};
+        return window.normAxisVal(ax, v);};
 
       const extra={};
       // ── TOP: 넥라인 유지 + (슬리브 대신) 숄더 디자인 그래프 ──

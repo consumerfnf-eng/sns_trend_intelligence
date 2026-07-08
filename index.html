@@ -3967,10 +3967,13 @@ renderHealth();
       // Pants Detail (v3): fit/leg → construction(Pintuck)/functional → hem/rise/material/pattern
       // Cotton/Other/Regular/Full/Open/Mid는 항상 제거
       let con2='';try{const dd=JSON.parse((r&&r.details)||'{}');let cv=dd.construction;con2=String(Array.isArray(cv)?cv[0]:cv||'');}catch(e){}
-      // 1. Fit / Leg Shape
+      const isSweat=/sweat/.test(bn);
+      // 1. Fit / Leg Shape (Unknown base여도 실제 fit/leg 정보는 그대로 활용)
       let fl=null;
       if(leg&&!isDef(leg,['regular','standard','straight-leg','full','mid'])){fl=clean(leg);}
       else if(fit&&!isDef(fit,['regular','standard','full','mid'])){fl=clean(fit);}
+      // Sweatpants는 Straight로 잡혀도 실제 실루엣이 Wide → Wide로 표기
+      if(isSweat&&fl&&/^straight$/i.test(fl))fl='Wide';
       if(fl&&!inBase(fl.toLowerCase().split(' ')[0]))parts.push(fl);
       // 2. Construction (Pin Tuck→Pintuck) + pants_detail
       if(parts.length<1){
@@ -3997,7 +4000,11 @@ renderHealth();
     }
     const detail=parts.length?parts[0]:'Basic';
     if(detail==='Basic'&&window.HIDE_BASIC)return null;
-    return detail+' '+base;
+    // ── base에서 Unknown/Other 제거: "Straight Unknown Pants" → "Straight Pants" ──
+    // Unknown은 "정보 없음"이라 라벨에 노출할 의미가 없음 → 실제 디테일(fit/leg 등)만 남김
+    let baseOut=String(base||'').replace(/\b(unknown|other)\s+/gi,'').trim();
+    if(!baseOut)baseOut=String(base||'');   // 전부 지워지면 원복
+    return detail+' '+baseOut;
   }
   // ── TOP Detail 라벨 (분류체계 v2: Anchor + Dominant Detail, Crew/Cotton/Regular=Basic) ──
   window.topLabel=function(r, base){

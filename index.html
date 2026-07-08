@@ -2646,12 +2646,8 @@ function aggregateBySubcategory(items){
     };
   });
 
-  // Unknown/Other 류는 항상 맨 뒤로, 나머지는 count 내림차순
-  result.sort((a, b) => {
-    const au=/^(unknown|other)\b/i.test(a.label||''), bu=/^(unknown|other)\b/i.test(b.label||'');
-    if(au&&!bu)return 1; if(bu&&!au)return -1;
-    return b.count - a.count;
-  });
+  // Unknown/Other/None 류는 항상 맨 뒤로, 나머지는 count 내림차순
+  result.sort((a, b) => cmpCount(a.label, a.count, b.label, b.count));
   return result;
 }
 
@@ -3090,6 +3086,19 @@ function normSurface(val){
   if(/^(none|plain|standard)$/i.test(m))return null;
   return m;
 }
+// ── Other/Unknown/None 라벨 판별 (정렬 시 항상 맨 뒤로) ──
+function isOtherLabel(label){
+  const s=String(label||'').trim();
+  if(/^(기타|미상|다른|불명|해당없음|없음)/.test(s))return true;   // 한글 (경계 없이)
+  return /^(other|unknown|none|n\/a|na|etc|misc)\b/i.test(s)
+      || /^(other|unknown|none)$/i.test(s);
+}
+// count 기반 정렬 비교자 (Other/Unknown 뒤로)
+function cmpCount(aLabel, aCount, bLabel, bCount){
+  const au=isOtherLabel(aLabel), bu=isOtherLabel(bLabel);
+  if(au&&!bu)return 1; if(bu&&!au)return -1;
+  return bCount-aCount;
+}
 function catMatch(rawCat){
   const c=String(rawCat||'').toUpperCase();
   if(STATE.category==='ALL')return true;
@@ -3525,7 +3534,7 @@ function extractFacets(){
         for(const [re,std] of FIB){ if(re.test(tok)){ fibPct[std]=(fibPct[std]||0)+pct; break; } }
       }
     }
-    let ranked=Object.entries(fibPct).sort((a,b)=>b[1]-a[1]);
+    let ranked=Object.entries(fibPct).sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1]));
     if(ranked.length){
       const top=ranked.slice(0,2).map(x=>x[0]);   // 상위 2섬유 (미량도 포함)
       if(top.length===2 && top[0]===top[1]) return top[0];
@@ -3610,16 +3619,16 @@ function extractFacets(){
   // Convert to sorted arrays
   const colors = Array.from(colorMap.entries())
     .map(([name, v]) => ({ name, count: v.count, hex: v.hex || guessHex(name) }))
-    .sort((a,b) => b.count - a.count);
+    .sort((a,b)=>cmpCount(a.label,a.count,b.label,b.count));
   const materials = Array.from(materialMap.entries())
     .map(([name, count]) => ({ name, count }))
-    .sort((a,b) => b.count - a.count);
+    .sort((a,b)=>cmpCount(a.label,a.count,b.label,b.count));
   const fits = Array.from(fitMap.entries())
     .map(([name, count]) => ({ name, count }))
-    .sort((a,b) => b.count - a.count);
+    .sort((a,b)=>cmpCount(a.label,a.count,b.label,b.count));
   const subcats = Array.from(subcatMap.entries())
     .map(([name, v]) => ({ name, count: v.count, category: v.category, bySrc: v.bySrc }))
-    .sort((a,b) => b.count - a.count);
+    .sort((a,b)=>cmpCount(a.label,a.count,b.label,b.count));
 
   return { colors, materials, fits, subcats };
 }
@@ -4350,7 +4359,7 @@ renderHealth();
       rows.forEach(r=>{ r.status = r.wScore>0 ? (r.aShare>=aHi?'ONGOING':'HOT') : 'FADING'; });
       rows.sort((x,y)=>y.a-x.a);
       // TREND에 없는 WGSN 신규 예측 키
-      const hotNew=[...sigMap.entries()].filter(([k])=>!usedSigKeys.has(k)).sort((a,b)=>b[1]-a[1]).slice(0,8);
+      const hotNew=[...sigMap.entries()].filter(([k])=>!usedSigKeys.has(k)).sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1])).slice(0,8);
       perCat[cat]={rows,hotNew,hasSig:sigMap.size>0};
     });
     return {perCat,plist,cats:['ALL',...CAT_ORDER.filter(c=>cats.has(c))],hasA,hasS};
@@ -4403,7 +4412,7 @@ renderHealth();
       const wchips=r.matched.length
         ? r.matched.slice(0,4).map(k=>`<span class="pp-wchip">${esc(hashKey(k))}</span>`).join(' ')
         : `<span class="pp-dash">—</span>`;
-      const others=[...r.det.entries()].filter(([k])=>!r.matched.includes(k)).sort((a,b)=>b[1]-a[1]).slice(0,4);
+      const others=[...r.det.entries()].filter(([k])=>!r.matched.includes(k)).sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1])).slice(0,4);
       return `<tr class="${r.matched.length?'wgsn':''}">
         <td style="text-align:center"><span class="pp-light ${dcls}" title="${lab}"></span></td>
         <td><span class="pp-item">${esc(r.label)}</span></td>
@@ -5223,6 +5232,8 @@ renderHealth();
         s1=ty;
       }
     }
+    // ── sub_category 통일: "Padding" → "Padding / Down" (퀼팅 데이터가 두 이름으로 갈려 안 보이던 문제) ──
+    if(/^padding$/i.test(String(s1||'').trim()))s1='Padding / Down';
     return {
       category: (function(){
         let nc=normCat(e.cat||r.category);
@@ -5663,7 +5674,7 @@ renderHealth();
       let kd=[];
       for(const ax of axList){
         const m=t.ax[ax];if(!m||!m.size)continue;
-        const vals=[...m.entries()].sort((a,b)=>b[1]-a[1])
+        const vals=[...m.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1]))
           .map(([k,v])=>[k,Math.round(v/t.posts*100)])
           .filter(([k,p])=>p>=10)
           .slice(0,3);
@@ -5683,7 +5694,7 @@ renderHealth();
           // Color는 최고값 1개만 재구성
           const cm=t.ax['color'];
           if(cm&&cm.size){
-            const cv=[...cm.entries()].sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,Math.round(v/t.posts*100)]).filter(([k,p])=>p>=10)[0];
+            const cv=[...cm.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1])).map(([k,v])=>[k,Math.round(v/t.posts*100)]).filter(([k,p])=>p>=10)[0];
             if(cv)arr.push(`<span class="ovk"><span class="ovk-ax">Color</span>${esc(String(cv[0]).split(' / ')[0])} <b>${cv[1]}%</b></span>`);
           }
         }
@@ -5751,12 +5762,12 @@ renderHealth();
       const subTot=[...D.sub.values()].reduce((a,b)=>a+b,0);
       const colTot=[...D.color.values()].reduce((a,b)=>a+b.n,0);
       const subE=[...D.sub.entries()].sort((a,b)=>(/\\bother\\b/i.test(a[0])-/\\bother\\b/i.test(b[0]))||(b[1]-a[1])).slice(0,10);
-      const colE=[...D.color.entries()].sort((a,b)=>b[1].n-a[1].n).slice(0,12).map(([k,v])=>[k,v.n,v.hex]);
+      const colE=[...D.color.entries()].sort((a,b)=>cmpCount(a[0],a[1].n,b[0],b[1].n)).slice(0,12).map(([k,v])=>[k,v.n,v.hex]);
       const colHex={};colE.forEach(([k,n,hex])=>colHex[k]=hex);
       // 패턴 독립 섹션 (패턴 비율 15%↑ 일 때만 — 의미있는 카테고리)
       const patTot=[...D.pat.values()].reduce((a,b)=>a+b,0);
       const patRatio=D.total?patTot/D.total:0;
-      const patE=[...D.pat.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10);
+      const patE=[...D.pat.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1])).slice(0,10);
       const showPat=patRatio>=0.15 && patE.length>=3;
       const patSec=showPat?`
         <div class="tg-sec">
@@ -5771,7 +5782,7 @@ renderHealth();
       MAIN_AXES.forEach(ax=>{
         if(ax==='pattern'&&showPat)return;
         const m=D.axes[ax];if(!m||!m.size)return;
-        const entries=[...m.entries()].sort((a,b)=>b[1]-a[1]);
+        const entries=[...m.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1]));
         dbars+=`<div class="tg-axis"><div class="axlbl">${ax.replace(/_/g,' ')}</div>${qbars(entries)}</div>`;
       });
       // 스커트 기장/모양 이중 원그래프 (BOTTOM 에 스커트 있을 때)
@@ -5795,7 +5806,7 @@ renderHealth();
       // 데님 워싱(연청/중청/흑청) 도넛
       let washSec='';
       if(D.dnWashTot>=3){
-        const wE=[...D.dnWash.entries()].sort((a,b)=>b[1]-a[1]);
+        const wE=[...D.dnWash.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1]));
         washSec=`
         <div class="tg-sec">
           <div class="tg-seclbl">DENIM WASH — 워싱 <span class="gr" style="font-weight:400">${D.dnWashTot} denim</span></div>
@@ -5866,7 +5877,7 @@ renderHealth();
         const key=(lbl===base)?base+' (기본)':lbl;
         detMap.set(key,(detMap.get(key)||0)+1);
       }));
-      const ent=[...detMap.entries()].sort((a,b)=>b[1]-a[1]);
+      const ent=[...detMap.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1]));
       const max=ent.length?ent[0][1]:1;
       const bars=ent.map(([k,v],i)=>`<div class="tg-row"><span class="nm">${esc(k)}</span><span class="bar" style="width:${Math.max(6,v/max*150)}px;background:${NEONPAL[i%NEONPAL.length]}"></span><span class="vv">${v}</span></div>`).join('');
       panel.innerHTML=`<div class="tg-drillhd">▸ ${esc(item)} 디테일 <span class="gr">(${n}건)</span></div><div class="tg-qbars">${bars||'<span class="gr">디테일 데이터 없음</span>'}</div>`;
@@ -5904,7 +5915,7 @@ renderHealth();
         const bg=sub.map((x,i)=>radialGrad(cv,NEONPAL[i%NEONPAL.length]));
         charts.push(new Chart(cv,{type:'doughnut',data:{labels:sub.map(x=>x[0]),datasets:[{data:sub.map(x=>x[1]),backgroundColor:bg,borderWidth:2,borderColor:'#fff'}]},options:opt}));
       }else if(kind==='pattern'){
-        const pe=[...D.pat.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10);
+        const pe=[...D.pat.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1])).slice(0,10);
         const bg=pe.map((x,i)=>radialGrad(cv,PATPAL[i%PATPAL.length]));
         charts.push(new Chart(cv,{type:'doughnut',data:{labels:pe.map(x=>x[0]),datasets:[{data:pe.map(x=>x[1]),backgroundColor:bg,borderWidth:2,borderColor:'#fff'}]},options:opt}));
       }else if(kind==='sklen'){
@@ -5924,11 +5935,11 @@ renderHealth();
         const bg=e.map((x,i)=>radialGrad(cv,NEONPAL[i%NEONPAL.length]));
         charts.push(new Chart(cv,{type:'doughnut',data:{labels:e.map(x=>x[0]),datasets:[{data:e.map(x=>x[1]),backgroundColor:bg,borderWidth:2,borderColor:'#fff'}]},options:opt}));
       }else if(kind==='dnwash'){
-        const e=[...D.dnWash.entries()].sort((a,b)=>b[1]-a[1]);
+        const e=[...D.dnWash.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1]));
         const bg=e.map((x,i)=>radialGrad(cv,WASHPAL[x[0]]||WASHPAL._d[i%WASHPAL._d.length]));
         charts.push(new Chart(cv,{type:'doughnut',data:{labels:e.map(x=>x[0]),datasets:[{data:e.map(x=>x[1]),backgroundColor:bg,borderWidth:2,borderColor:'#fff'}]},options:opt}));
       }else{
-        const col=[...D.color.entries()].sort((a,b)=>b[1].n-a[1].n).slice(0,12);
+        const col=[...D.color.entries()].sort((a,b)=>cmpCount(a[0],a[1].n,b[0],b[1].n)).slice(0,12);
         const bg=col.map(x=>radialGrad(cv,x[1].hex));
         charts.push(new Chart(cv,{type:'doughnut',data:{labels:col.map(x=>x[0]),datasets:[{data:col.map(x=>x[1].n),backgroundColor:bg,borderWidth:2,borderColor:'#fff'}]},options:opt}));
       }
@@ -6427,7 +6438,7 @@ renderHealth();
       const seen=new Set(),photos=[];
       v.cand.sort((a,b)=>b.score-a.score).forEach(c=>{if(photos.length<3&&!seen.has(c.pk)){seen.add(c.pk);photos.push(c.thumb);}});
       return {label:k,count:v.count,photos};
-    }).sort((a,b)=>(/\bother\b/i.test(a.label)-/\bother\b/i.test(b.label))||(b.count-a.count));
+    }).sort((a,b)=>cmpCount(a.label,a.count,b.label,b.count));
   }
   window.__buildSeasonReport=function(season){
     const MAIN=[['Outer','OUTERWEAR'],['Top','TOP'],['Bottom','BOTTOM'],['Onepiece','DRESS']];
@@ -6464,9 +6475,9 @@ renderHealth();
     };
     report.stageMeta=STAGE_META;
     report.stageData={
-      wgsn:[...wgsnSub.entries()].sort((a,b)=>b[1]-a[1]),
-      rise:[...riseSub.entries()].sort((a,b)=>b[1]-a[1]),
-      ong:[...ongSub.entries()].sort((a,b)=>b[1]-a[1])
+      wgsn:[...wgsnSub.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1])),
+      rise:[...riseSub.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1])),
+      ong:[...ongSub.entries()].sort((a,b)=>cmpCount(a[0],a[1],b[0],b[1]))
     };
     // 단계별 대표 아이템 (리포트 §2용)
     const allSub=new Set([...wgsnSub.keys(),...riseSub.keys(),...ongSub.keys()]);
@@ -6520,10 +6531,10 @@ renderHealth();
       const details=collectDist(rows, r=>{const ef=eff(r);const base=ef.sub2||ef.sub_category||'Other';return trendLabel(r,base,NORM);}).slice(0,12);
       const colMap=new Map();
       rows.forEach(r=>{try{(JSON.parse(r.dominant_colors||'[]')||[]).forEach(c=>{if(c){const g=colGroup(c);colMap.set(g[0],{n:(colMap.get(g[0])?.n||0)+1,hex:g[1]});}});}catch(e){}});
-      const colors=[...colMap.entries()].map(([k,v])=>({label:k,count:v.n,hex:v.hex})).sort((a,b)=>b.count-a.count).slice(0,10);
+      const colors=[...colMap.entries()].map(([k,v])=>({label:k,count:v.n,hex:v.hex})).sort((a,b)=>cmpCount(a.label,a.count,b.label,b.count)).slice(0,10);
       const patMap=new Map();let patTot=0;
       rows.forEach(r=>{let d={};try{d=JSON.parse(r.details||'{}');}catch(e){}let pv=d.pattern||r.pattern;(Array.isArray(pv)?pv:[pv]).forEach(x=>{if(x&&!/^(solid|none|무지|plain)$/i.test(String(x).trim())){patMap.set(x,(patMap.get(x)||0)+1);patTot++;}});});
-      const patterns=[...patMap.entries()].map(([k,v])=>({label:k,count:v})).sort((a,b)=>b.count-a.count).slice(0,8);
+      const patterns=[...patMap.entries()].map(([k,v])=>({label:k,count:v})).sort((a,b)=>cmpCount(a.label,a.count,b.label,b.count)).slice(0,8);
       const patRatio=total?patTot/total:0;
       const top3=items.slice(0,3).map(i=>i.label).join(', ');
       const topCol=colors.slice(0,2).map(c=>c.label).join('·');
@@ -6534,12 +6545,7 @@ renderHealth();
         const m=new Map();
         rws.forEach(r=>{const v=keyFn(r);if(!v)return;const vn=String(v).trim();if(!vn||/^(solid|none|regular|standard|무지|plain)$/i.test(vn))return;m.set(vn,(m.get(vn)||0)+1);});
         return [...m.entries()].map(([k,v])=>({label:k,count:v}))
-          .sort((a,b)=>{
-            // Unknown/Other는 항상 맨 아래로
-            const au=/^(unknown|other)$/i.test(a.label), bu=/^(unknown|other)$/i.test(b.label);
-            if(au&&!bu)return 1; if(bu&&!au)return -1;
-            return b.count-a.count;
-          }).slice(0,8);
+          .sort((a,b)=>cmpCount(a.label,a.count,b.label,b.count)).slice(0,8);
       };
       const getDet=(r,ax)=>{let d={};try{d=JSON.parse(r.details||'{}');}catch(e){}let v=d[ax];v=Array.isArray(v)?v[0]:v;
         if(v==null)return v;
@@ -6658,7 +6664,7 @@ renderHealth();
         const pantsRows=rows.filter(isPants);
         const denimRows=rows.filter(isDenim);
         const skirtRows=rows.filter(isSkirt);
-        const _colorsOf=(rws)=>{const cm=new Map();rws.forEach(r=>{try{(JSON.parse(r.dominant_colors||'[]')||[]).forEach(c=>{if(c){const g=colGroup(c);cm.set(g[0],{n:(cm.get(g[0])?.n||0)+1,hex:g[1]});}});}catch(e){}});return [...cm.entries()].map(([k,v])=>({label:k,count:v.n,hex:v.hex})).sort((a,b)=>b.count-a.count).slice(0,6);};
+        const _colorsOf=(rws)=>{const cm=new Map();rws.forEach(r=>{try{(JSON.parse(r.dominant_colors||'[]')||[]).forEach(c=>{if(c){const g=colGroup(c);cm.set(g[0],{n:(cm.get(g[0])?.n||0)+1,hex:g[1]});}});}catch(e){}});return [...cm.entries()].map(([k,v])=>({label:k,count:v.n,hex:v.hex})).sort((a,b)=>cmpCount(a.label,a.count,b.label,b.count)).slice(0,6);};
         // Pants (데님 제외)
         if(pantsRows.length>=2){
           extra.pants={

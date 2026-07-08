@@ -3087,18 +3087,21 @@ function normSurface(val){
   return m;
 }
 // ── Other/Unknown/None 라벨 판별 (정렬 시 항상 맨 뒤로) ──
-function isOtherLabel(label){
+// window에 노출: 다른 <script> 블록에서도 쓰기 위함
+window.isOtherLabel = function isOtherLabel(label){
   const s=String(label||'').trim();
   if(/^(기타|미상|다른|불명|해당없음|없음)/.test(s))return true;   // 한글 (경계 없이)
   return /^(other|unknown|none|n\/a|na|etc|misc)\b/i.test(s)
       || /^(other|unknown|none)$/i.test(s);
-}
+};
+var isOtherLabel = window.isOtherLabel;
 // count 기반 정렬 비교자 (Other/Unknown 뒤로)
-function cmpCount(aLabel, aCount, bLabel, bCount){
-  const au=isOtherLabel(aLabel), bu=isOtherLabel(bLabel);
+window.cmpCount = function cmpCount(aLabel, aCount, bLabel, bCount){
+  const au=window.isOtherLabel(aLabel), bu=window.isOtherLabel(bLabel);
   if(au&&!bu)return 1; if(bu&&!au)return -1;
   return bCount-aCount;
-}
+};
+var cmpCount = window.cmpCount;
 function catMatch(rawCat){
   const c=String(rawCat||'').toUpperCase();
   if(STATE.category==='ALL')return true;
@@ -4577,6 +4580,9 @@ renderHealth();
 </style>
 <script>
 (function(){
+  // 다른 <script> 블록에 정의된 정렬 헬퍼 참조 (Other/Unknown 맨 뒤로)
+  const isOtherLabel = window.isOtherLabel || function(l){return /^(other|unknown|none)\b/i.test(String(l||'').trim());};
+  const cmpCount = window.cmpCount || function(aL,aC,bL,bC){const au=isOtherLabel(aL),bu=isOtherLabel(bL);if(au&&!bu)return 1;if(bu&&!au)return -1;return bC-aC;};
   const ACTUAL=new Set(['ranking','musinsa','instagram','xiaohongshu','xhs']);
   const SRCMETA={ranking:['#2563FF','Musinsa'],musinsa:['#2563FF','Musinsa'],
     instagram:['#FF5E3A','Instagram'],xiaohongshu:['#FF2D78','Xiaohongshu'],xhs:['#FF2D78','Xiaohongshu'],
@@ -5421,6 +5427,10 @@ renderHealth();
         // 예) Turtleneck/Mock-neck 버킷에 Neck:Turtle Neck 이 또 뜨는 것 방지
         if(axis==='neckline'&&/turtle|mock.?neck|turtleneck/i.test(label))return;
         if(axis==='collar'&&/hood/i.test(label))return;
+        // ── 축 값 정규화 (off/cold/one-shoulder → Off-shoulder, collar/fit/material 통일) ──
+        const _nv=window.normAxisVal?window.normAxisVal(axis,val):val;
+        if(!_nv)return;   // Standard/None 등은 제외
+        val=_nv;
         (o.ax[axis]=o.ax[axis]||new Map()).set(val,(o.ax[axis].get(val)||0)+1);
         // surface_finish가 wash 계열이면 wash 축에도 추가
         if(axis==='surface_finish'&&/wash|washed|vintage|distress|crinkl|faded|raw|rigid/i.test(vn)){
@@ -6554,7 +6564,7 @@ renderHealth();
       const st=stageOf(s2);
       (byStage[st]=byStage[st]||[]).push({sub2:s2, w:wgsnSub.get(s2)||0, i:riseSub.get(s2)||0, o:ongSub.get(s2)||0});
     });
-    Object.keys(byStage).forEach(k=>byStage[k].sort((a,b)=>(b.i+b.o+b.w)-(a.i+a.o+a.w)));
+    Object.keys(byStage).forEach(k=>byStage[k].sort((a,b)=>cmpCount(a.sub2,(a.i+a.o+a.w),b.sub2,(b.i+b.o+b.w))));
     report.byStage=byStage;
     // ── 데이터 출처 요약 (리포트 맨 위 표시용) ──
     // 현재 시즌·라이프스타일 필터를 통과한 행 기준으로 소스별 집계

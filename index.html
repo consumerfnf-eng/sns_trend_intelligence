@@ -3967,14 +3967,37 @@ renderHealth();
       // Pants Detail (v3): fit/leg → construction(Pintuck)/functional → hem/rise/material/pattern
       // Cotton/Other/Regular/Full/Open/Mid는 항상 제거
       let con2='';try{const dd=JSON.parse((r&&r.details)||'{}');let cv=dd.construction;con2=String(Array.isArray(cv)?cv[0]:cv||'');}catch(e){}
-      const isSweat=/sweat/.test(bn);
-      // 1. Fit / Leg Shape (Unknown base여도 실제 fit/leg 정보는 그대로 활용)
+      const isUnknownBase=/unknown|other/i.test(bn);
+      // 0. Unknown base(소재 불명)면 특징적인 정보(패턴/표면/디테일) 우선 → Unknown 덩어리 분산
+      if(isUnknownBase){
+        const normPat=v=>{const n=String(v).toLowerCase();
+          if(/stripe/.test(n))return'Stripe'; if(/plaid|check|tartan|gingham/.test(n))return'Plaid';
+          if(/camo/.test(n))return'Camo'; if(/animal|leopard|zebra/.test(n))return'Animal';
+          if(/graphic|print/.test(n))return'Graphic'; if(/floral/.test(n))return'Floral';
+          if(/logo/.test(n))return'Logo'; return null;};
+        const p=pat?normPat(pat):null;
+        if(p)parts.push(p);
+        if(parts.length<1&&surf&&/distress|coat|crinkl|shimmer|wash/i.test(surf)){
+          const s=String(surf);
+          if(/distress/i.test(s))parts.push('Distressed'); else if(/coat/i.test(s))parts.push('Coated');
+          else if(/crinkl/i.test(s))parts.push('Crinkled'); else if(/shimmer/i.test(s))parts.push('Shimmer');
+          else parts.push('Washed');
+        }
+        if(parts.length<1&&pdet&&!isDef(pdet,['none','basic','standard','regular'])){
+          const s=String(pdet).split('/')[0].trim();
+          if(/drawstring/i.test(s))parts.push('Drawstring'); else if(/pleat/i.test(s))parts.push('Pleated');
+          else if(/ruch/i.test(s))parts.push('Ruched'); else if(!/^(mid|full|open|none|basic)$/i.test(s))parts.push(s);
+        }
+        if(parts.length<1&&hemS&&/elastic|cuffed|slit|raw|bubble/i.test(hemS))parts.push(clean(hemS));
+        if(parts.length<1&&rise&&/^high$/i.test(rise))parts.push('High-rise');
+      }
+      // 1. Fit / Leg Shape (위에서 못 잡았을 때)
       let fl=null;
-      if(leg&&!isDef(leg,['regular','standard','straight-leg','full','mid'])){fl=clean(leg);}
-      else if(fit&&!isDef(fit,['regular','standard','full','mid'])){fl=clean(fit);}
-      // Sweatpants는 Straight로 잡혀도 실제 실루엣이 Wide → Wide로 표기
-      if(isSweat&&fl&&/^straight$/i.test(fl))fl='Wide';
-      if(fl&&!inBase(fl.toLowerCase().split(' ')[0]))parts.push(fl);
+      if(parts.length<1){
+        if(leg&&!isDef(leg,['regular','standard','straight-leg','full','mid'])){fl=clean(leg);}
+        else if(fit&&!isDef(fit,['regular','standard','full','mid'])){fl=clean(fit);}
+        if(fl&&!inBase(fl.toLowerCase().split(' ')[0]))parts.push(fl);
+      }
       // 2. Construction (Pin Tuck→Pintuck) + pants_detail
       if(parts.length<1){
         let pt=pdet||con2;

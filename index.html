@@ -4626,20 +4626,20 @@ renderHealth();
     const raw=String(v).trim();
     // ── [전역 ⑦] Not Observable / N/A 계열은 모든 축에서 숨김 ──
     if(/^(not[\s\-_]?observ(able|ed)?|n\/?a|unobservable|미확인|확인불가)$/i.test(raw))return null;
-    // ── [⑨/②] fit: Bottom 계열은 볼륨 스펙트럼으로 통합 ──
-    //    ctx: 'DENIM' → Wide / Straight / Slim  (Relaxed·Regular → Straight)
-    //    ctx: 'PANTS' → Wide / Relaxed / Straight / Slim  (Regular → Relaxed)
-    //    그 외(Top/Outer) → 기존 Oversized 유지
+    // ── [⑨/②] fit: Bottom 계열은 볼륨 스펙트럼 3단계로 통합 ──
+    //    Wide / Relaxed / Slim  — 라인 단어(Straight)는 leg_shape 축이 담당
     if(ax==='fit'&&(ctx==='DENIM'||ctx==='PANTS')){
       const f=raw.toLowerCase().replace(/ fit$/,'');
       if(/^(wide|baggy|oversized|boxy|loose)$/.test(f))return 'Wide';
       if(/^(slim|skinny|fitted|tight)$/.test(f))return 'Slim';
-      if(ctx==='DENIM'){
-        if(/^(straight|relaxed|regular|standard|normal|basic)$/.test(f))return 'Straight';
-      }else{
-        if(/^(relaxed|regular|standard|normal|basic)$/.test(f))return 'Relaxed';
-        if(/^straight$/.test(f))return 'Straight';
-      }
+      if(/^(straight|relaxed|regular|standard|normal|basic)$/.test(f))return 'Relaxed';
+      return v;
+    }
+    // ── [⑤] leg_shape: 라인 축. Barrel/Balloon→Curved, Flare/Bootcut→Flared ──
+    if(ax==='leg_shape'){
+      const l=raw.toLowerCase();
+      if(/^(barrel|balloon|curved|horseshoe)$/.test(l))return 'Curved';
+      if(/^(flare|flared|bootcut|bell)$/.test(l))return 'Flared';
       return v;
     }
     // ── [④] waist_rise: High Rise → High 등 표기 통일 ──
@@ -5624,13 +5624,12 @@ renderHealth();
     for(const [k,v] of F){if(all.includes(k))return v;}
     return 'Unspec.';
   }
-  // ── [②/⑨] FIT 도넛 통합: Denim은 3단계, Pants는 4단계 ──
-  function mergeFit(fit, isDn){
+  // ── [②/⑨] FIT 도넛 통합: Denim·Pants 공통 Wide / Relaxed / Slim ──
+  function mergeFit(fit){
     const f=String(fit||'').toLowerCase();
-    if(/^(wide|baggy|loose)$/.test(f))return 'Wide';
+    if(/^(wide|baggy|loose|oversized)$/.test(f))return 'Wide';
     if(/^(slim|skinny|fitted)$/.test(f))return 'Slim';
-    if(isDn){ if(/^(straight|relaxed|regular)$/.test(f))return 'Straight'; }
-    else { if(/^(relaxed|regular)$/.test(f))return 'Relaxed'; if(/^straight$/.test(f))return 'Straight'; }
+    if(/^(straight|relaxed|regular)$/.test(f))return 'Relaxed';
     return fit;
   }
 
@@ -5665,7 +5664,7 @@ renderHealth();
       // 바지(스커트/레깅스 제외)면 데님/논데님 핏 집계
       if(cat==='BOTTOM' && !/skirt|legging|스커트|레깅스/i.test((ef.sub2||'')+(ef.sub_category||''))){
         const _isDn=isDenim(r);
-        const fit=mergeFit(pantsFit(r), _isDn);
+        const fit=mergeFit(pantsFit(r));
         if(_isDn){
           dnTot++;dnFit.set(fit,(dnFit.get(fit)||0)+1);
           // 워싱: details.wash → wash 컬럼 → item_display 추론
@@ -5929,9 +5928,8 @@ renderHealth();
       const SHOE_AX=['shoe_width','toe_style','heel_height'];
       const BAG_AX=['carry_method','bag_type','bag_size','bag_structure','bag_geometry','bag_orientation','bag_closure','strap_style','bag_use_case','bag_surface'];
       const TOP_AX=['sleeve_length','neckline','neckline_depth','shoulder_design','collar','placket','body_length','sleeve_shape','fit','material','construction','surface_finish','silhouette'];
-      // [⑩] leg_shape 표 숨김 — fit(볼륨)과 값이 겹쳐 혼란 유발. 재분석 후 복구 예정
-      //     되살리려면 아래 배열에 'leg_shape' 를 다시 넣으면 됨
-      const BOTTOM_AX=['fit','waist_rise','functional_style','hem_length','hem_style','wash','material','surface_finish','silhouette'];
+      // [⑩] leg_shape 복구 — fit=볼륨(Wide/Relaxed/Slim), leg_shape=라인(Straight/Curved/Flared)
+      const BOTTOM_AX=['fit','leg_shape','waist_rise','functional_style','hem_length','hem_style','wash','material','surface_finish','silhouette'];
       const OUTER_AX=['collar','closure','surface_finish','insulation','construction','silhouette','quilt_pattern','down_weight','material','fit','shoulder_design'];
       const DRESS_AX=['sleeve_length','neckline','shoulder_design','collar','silhouette','hem_length','waist_rise','material','construction'];
       function axAllowed(ax){
@@ -6804,11 +6802,10 @@ renderHealth();
               if(/curved|barrel|balloon|horseshoe/.test(f))return 'Curved';
               // Flared 계열 통합: Bootcut/Flare → Flared
               if(/bootcut|flare/.test(f))return 'Flared';
-              // [⑨] Pants 볼륨 통합: Wide / Relaxed / Straight / Slim
+              // [⑨] Pants 볼륨 통합: Wide / Relaxed / Slim
               if(/^(wide|baggy|loose|oversized)$/.test(f))return 'Wide';
               if(/^(slim|skinny|fitted)$/.test(f))return 'Slim';
-              if(/^(relaxed|regular)$/.test(f))return 'Relaxed';
-              if(/^straight$/.test(f))return 'Straight';
+              if(/^(relaxed|regular|straight)$/.test(f))return 'Relaxed';
               return String(raw).replace(/ Fit$/,'');
             }),
             // 디테일 그래프 (Pintuck/Pleated/Cargo/Darted 등 — pants_detail만, 논데님 construction 제외)
@@ -6836,10 +6833,10 @@ renderHealth();
               const f=String(raw).toLowerCase();
               if(/curved|barrel|balloon|horseshoe/.test(f))return 'Curved';
               if(/bootcut|flare/.test(f))return 'Flared';
-              // [②] Denim 볼륨 통합: Wide / Straight / Slim
+              // [②] Denim 볼륨 통합: Wide / Relaxed / Slim
               if(/^(wide|baggy|loose|oversized)$/.test(f))return 'Wide';
               if(/^(slim|skinny|fitted)$/.test(f))return 'Slim';
-              if(/^(straight|relaxed|regular)$/.test(f))return 'Straight';
+              if(/^(straight|relaxed|regular)$/.test(f))return 'Relaxed';
               return raw;
             }),
             // 워싱 그래프 (연청/중청/진청/흑청)

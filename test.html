@@ -1559,153 +1559,6 @@ function __filterCSVbySeason(text, season){
 }
 
 // ─── Market Analysis 탭 = 시즌 리포트 인-페이지 미리보기 ───
-// ══════════════════════════════════════════════════════════════════
-//  [TEST] MUSINSA MARKET DASHBOARD
-//  무신사 실판매 순위(musinsa_rank) + 월별 흐름 전용.
-//  인스타/WGSN 제외, 무신사(source: musinsa/ranking) 데이터만 사용.
-// ══════════════════════════════════════════════════════════════════
-const MKT_MONTHS=['2025-09','2025-10','2025-11','2025-12','2026-01','2026-02'];
-const MKT_MLBL={'2025-09':'9월','2025-10':'10월','2025-11':'11월','2025-12':'12월','2026-01':'1월','2026-02':'2월'};
-const MKT_CATS=[['Outer','아우터','#2563FF'],['Top','상의','#16a34a'],['Bottom','하의','#f59e0b'],['Bag','가방','#a855f7'],['Shoes','신발','#ec4899'],['Hat','모자','#06b6d4']];
-let MKT_GENDER='ALL';   // ALL / 여자 / 남자
-
-function mktRows(){
-  // 무신사 데이터만, 현재 성별 필터 적용
-  const out=[];
-  FILES.forEach(f=>f.rows.forEach(r=>{
-    const sk=(r.source||'').toLowerCase();
-    if(sk!=='musinsa'&&sk!=='ranking')return;
-    if((r.category||'').trim()==='Exclude')return;
-    if(MKT_GENDER!=='ALL'){
-      const g=String(r.gender||'').trim();
-      if(g&&g!==MKT_GENDER)return;
-    }
-    out.push(r);
-  }));
-  return out;
-}
-function mktRank(r){const v=parseFloat(r.musinsa_rank);return isNaN(v)?null:v;}
-function mktLabel(r){return (r.sub2||r.sub_category||r.base_garment||'').trim()||'기타';}
-function mktThumb(r){try{const im=JSON.parse(r.images||'[]')[0];let t=im&&(im.thumbUrl||im.fullUrl);if(t&&!String(t).startsWith('data:'))return String(t);}catch(e){}return '';}
-
-function renderMktDash(){
-  const host=document.getElementById('mktDash');
-  if(!host)return;
-  const rows=mktRows();
-  if(!rows.length){host.innerHTML='<div class="empty" style="padding:40px 0"><div class="empty-mark">◳</div><div class="empty-title">무신사 데이터 없음</div><div class="empty-sub">웹 주소(https://...github.io)로 열어야 무신사 시트를 읽습니다. 로컬 파일(file://)에서는 안 나옵니다.</div></div>';return;}
-  const ranked=rows.filter(r=>mktRank(r)!=null);
-
-  // ── ① 월별 카테고리 흐름 (건수 기준) ──
-  const catMonth={};  // cat -> month -> count
-  MKT_CATS.forEach(([c])=>{catMonth[c]={};MKT_MONTHS.forEach(m=>catMonth[c][m]=0);});
-  ranked.forEach(r=>{
-    const c=(r.category||'').trim(), m=(r.month||'').trim();
-    if(catMonth[c]&&m in catMonth[c])catMonth[c][m]++;
-  });
-
-  // ── ② 순위 급등/급락: 라벨별 월간 최고순위(min rank) 추적 ──
-  const lblMonth={};  // label -> {cat, month->bestRank}
-  ranked.forEach(r=>{
-    const l=mktLabel(r), m=(r.month||'').trim(), rk=mktRank(r);
-    if(!(m in MKT_MLBL))return;
-    if(!lblMonth[l])lblMonth[l]={cat:(r.category||'').trim(),m:{},th:{}};
-    const o=lblMonth[l];
-    if(o.m[m]==null||rk<o.m[m]){o.m[m]=rk;o.th[m]=mktThumb(r)||o.th[m];}
-  });
-  // 초반(9~10월) 최고순위 vs 후반(1~2월) 최고순위 비교
-  const bestOf=(o,ms)=>{let b=null;ms.forEach(m=>{if(o.m[m]!=null&&(b==null||o.m[m]<b))b=o.m[m];});return b;};
-  const moves=[];
-  Object.entries(lblMonth).forEach(([l,o])=>{
-    const early=bestOf(o,['2025-09','2025-10','2025-11']);
-    const late =bestOf(o,['2025-12','2026-01','2026-02']);
-    const anyTh=MKT_MONTHS.map(m=>o.th[m]).find(Boolean)||'';
-    if(early!=null&&late!=null){
-      moves.push({label:l,cat:o.cat,early,late,delta:early-late,th:anyTh}); // delta>0 = 순위 상승
-    }else if(late!=null&&early==null){
-      moves.push({label:l,cat:o.cat,early:null,late,delta:99,th:anyTh,isNew:true});
-    }else if(early!=null&&late==null){
-      moves.push({label:l,cat:o.cat,early,late:null,delta:-99,th:anyTh,isGone:true});
-    }
-  });
-  const rising=moves.filter(m=>!m.isGone&&m.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,8);
-  const falling=moves.filter(m=>!m.isNew&&m.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,8);
-
-  // ── ③ 현재 월 TOP 랭킹 (기본: 마지막 월) ──
-  const curMonth=window.__MKT_MONTH||'2026-02';
-  const monthTop=ranked.filter(r=>(r.month||'').trim()===curMonth)
-    .sort((a,b)=>mktRank(a)-mktRank(b)).slice(0,12);
-
-  // ===== HTML 조립 =====
-  const CATNAME={Outer:'아우터',Top:'상의',Bottom:'하의',Bag:'가방',Shoes:'신발',Hat:'모자',Onepiece:'원피스'};
-  // 성별 탭
-  let gbtns=['ALL','여자','남자'].map(g=>`<button class="mkt-g ${MKT_GENDER===g?'on':''}" data-mktg="${g}">${g==='ALL'?'전체':g}</button>`).join('');
-
-  // ① 흐름 꺾은선 (SVG)
-  const W=760,H=220,PL=40,PR=16,PT=16,PB=30;
-  const maxV=Math.max(1,...MKT_CATS.map(([c])=>Math.max(...MKT_MONTHS.map(m=>catMonth[c][m]))));
-  const xAt=i=>PL+i*((W-PL-PR)/(MKT_MONTHS.length-1));
-  const yAt=v=>PT+(H-PT-PB)*(1-v/maxV);
-  let grid='';for(let g=0;g<=4;g++){const y=PT+(H-PT-PB)*g/4;const val=Math.round(maxV*(1-g/4));grid+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${PL-6}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--ink-3)" font-family="var(--mono)">${val}</text>`;}
-  let xlbls=MKT_MONTHS.map((m,i)=>`<text x="${xAt(i)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--ink-3)" font-family="var(--mono)">${MKT_MLBL[m]}</text>`).join('');
-  let lines=MKT_CATS.map(([c,ko,col])=>{
-    const pts=MKT_MONTHS.map((m,i)=>`${xAt(i)},${yAt(catMonth[c][m])}`).join(' ');
-    const dots=MKT_MONTHS.map((m,i)=>`<circle cx="${xAt(i)}" cy="${yAt(catMonth[c][m])}" r="3" fill="${col}"/>`).join('');
-    return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2"/>${dots}`;
-  }).join('');
-  let legend=MKT_CATS.map(([c,ko,col])=>`<span class="mkt-leg"><i style="background:${col}"></i>${ko}</span>`).join('');
-  const flowSVG=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-width:${W}px">${grid}${lines}${xlbls}</svg><div class="mkt-legwrap">${legend}</div>`;
-
-  // ② 순위 이동 카드
-  const moveCard=(m,up)=>{
-    const arrow=up?`<span class="mkt-up">▲${m.delta===99?'NEW':m.delta}</span>`:`<span class="mkt-dn">▼${m.delta===-99?'OUT':Math.abs(m.delta)}</span>`;
-    const path=m.isNew?`신규 → ${m.late}위`:m.isGone?`${m.early}위 → 이탈`:`${m.early}위 → ${m.late}위`;
-    return `<div class="mkt-move">${m.th?`<img src="${m.th}" loading="lazy">`:'<div class="mkt-noimg"></div>'}
-      <div class="mkt-move-body"><div class="mkt-move-lbl">${esc(m.label)} <span class="mkt-cat">${esc(CATNAME[m.cat]||m.cat)}</span></div>
-      <div class="mkt-move-path">${path}</div></div>${arrow}</div>`;
-  };
-  const risingHTML=rising.length?rising.map(m=>moveCard(m,true)).join(''):'<div class="mkt-empty">해당 없음</div>';
-  const fallingHTML=falling.length?falling.map(m=>moveCard(m,false)).join(''):'<div class="mkt-empty">해당 없음</div>';
-
-  // ③ 월 선택 + TOP 랭킹
-  let monthBtns=MKT_MONTHS.map(m=>`<button class="mkt-mbtn ${m===curMonth?'on':''}" data-mktmonth="${m}">${MKT_MLBL[m]}</button>`).join('');
-  let topHTML=monthTop.map(r=>{
-    const th=mktThumb(r);
-    return `<div class="mkt-rank-row"><span class="mkt-rk">${mktRank(r)}</span>
-      ${th?`<img src="${th}" loading="lazy">`:'<div class="mkt-noimg sm"></div>'}
-      <span class="mkt-rank-lbl">${esc(mktLabel(r))}</span>
-      <span class="mkt-cat">${esc(CATNAME[(r.category||'').trim()]||(r.category||'').trim())}</span></div>`;
-  }).join('')||'<div class="mkt-empty">이 달 데이터 없음</div>';
-
-  host.innerHTML=`
-    <div class="mkt-head">
-      <div class="mkt-title">Market Analysis <span>· 무신사 실판매 순위 (${ranked.length.toLocaleString()}건)</span></div>
-      <div class="mkt-gtabs">${gbtns}</div>
-    </div>
-    <div class="mkt-sec">
-      <div class="mkt-lbl">월별 카테고리 흐름 <span>· 순위권 진입 아이템 수</span></div>
-      ${flowSVG}
-    </div>
-    <div class="mkt-grid2">
-      <div class="mkt-sec">
-        <div class="mkt-lbl">순위 급상승 <span>· 가을 → 겨울 최고순위 상승폭</span></div>
-        <div class="mkt-movelist">${risingHTML}</div>
-      </div>
-      <div class="mkt-sec">
-        <div class="mkt-lbl">순위 하락 · 이탈 <span>· 겨울 들어 빠진 아이템</span></div>
-        <div class="mkt-movelist">${fallingHTML}</div>
-      </div>
-    </div>
-    <div class="mkt-sec">
-      <div class="mkt-lbl">월별 TOP 랭킹</div>
-      <div class="mkt-mbtns">${monthBtns}</div>
-      <div class="mkt-ranklist">${topHTML}</div>
-    </div>`;
-
-  // 이벤트 바인딩
-  host.querySelectorAll('[data-mktg]').forEach(b=>b.onclick=()=>{MKT_GENDER=b.dataset.mktg;renderMktDash();});
-  host.querySelectorAll('[data-mktmonth]').forEach(b=>b.onclick=()=>{window.__MKT_MONTH=b.dataset.mktmonth;renderMktDash();});
-}
-
 function renderMarketPreview(){
   const frame=document.getElementById('marketFrame');
   const empty=document.getElementById('marketEmpty');
@@ -1713,7 +1566,7 @@ function renderMarketPreview(){
   // 패널이 화면에 보일 때만 무거운 iframe 재생성 (다른 탭이면 스킵)
   const panel=document.getElementById('panel-proposal');
   if(panel && !panel.classList.contains('on'))return;
-  try{renderMktDash();}catch(e){console.warn('mktDash',e);}   // [TEST] 무신사 대시보드
+  try{if(window.renderMktDash)window.renderMktDash();}catch(e){console.warn('mktDash',e);}   // [TEST] 무신사 대시보드
   if(typeof window.__buildSeasonReport!=='function'){return;}
   const season=STATE.seasonCode;
   const report=window.__buildSeasonReport(season);
@@ -5286,6 +5139,155 @@ renderHealth();
     return [r.item_keyword||r.item_display||'',r.sub2||'',r.month||'',r.source||''].join('|');
   }
   // 수정 적용된 유효 분류 반환 (제외 여부 포함)
+// ══════════════════════════════════════════════════════════════════
+//  [TEST] MUSINSA MARKET DASHBOARD
+//  무신사 실판매 순위(musinsa_rank) + 월별 흐름 전용.
+//  인스타/WGSN 제외, 무신사(source: musinsa/ranking) 데이터만 사용.
+// ══════════════════════════════════════════════════════════════════
+const MKT_MONTHS=['2025-09','2025-10','2025-11','2025-12','2026-01','2026-02'];
+const MKT_MLBL={'2025-09':'9월','2025-10':'10월','2025-11':'11월','2025-12':'12월','2026-01':'1월','2026-02':'2월'};
+const MKT_CATS=[['Outer','아우터','#2563FF'],['Top','상의','#16a34a'],['Bottom','하의','#f59e0b'],['Bag','가방','#a855f7'],['Shoes','신발','#ec4899'],['Hat','모자','#06b6d4']];
+let MKT_GENDER='ALL';   // ALL / 여자 / 남자
+
+function mktRows(){
+  // 무신사 데이터만, 현재 성별 필터 적용
+  const out=[];
+  FILES.forEach(f=>f.rows.forEach(r=>{
+    const sk=(r.source||'').toLowerCase();
+    if(sk!=='musinsa'&&sk!=='ranking')return;
+    if((r.category||'').trim()==='Exclude')return;
+    if(MKT_GENDER!=='ALL'){
+      const g=String(r.gender||'').trim();
+      if(g&&g!==MKT_GENDER)return;
+    }
+    out.push(r);
+  }));
+  return out;
+}
+function mktRank(r){const v=parseFloat(r.musinsa_rank);return isNaN(v)?null:v;}
+function mktLabel(r){return (r.sub2||r.sub_category||r.base_garment||'').trim()||'기타';}
+function mktThumb(r){try{const im=JSON.parse(r.images||'[]')[0];let t=im&&(im.thumbUrl||im.fullUrl);if(t&&!String(t).startsWith('data:'))return String(t);}catch(e){}return '';}
+
+function renderMktDash(){
+  const host=document.getElementById('mktDash');
+  if(!host)return;
+  const rows=mktRows();
+  if(!rows.length){host.innerHTML='<div class="empty" style="padding:40px 0"><div class="empty-mark">◳</div><div class="empty-title">무신사 데이터 없음</div><div class="empty-sub">웹 주소(https://...github.io)로 열어야 무신사 시트를 읽습니다. 로컬 파일(file://)에서는 안 나옵니다.</div></div>';return;}
+  const ranked=rows.filter(r=>mktRank(r)!=null);
+
+  // ── ① 월별 카테고리 흐름 (건수 기준) ──
+  const catMonth={};  // cat -> month -> count
+  MKT_CATS.forEach(([c])=>{catMonth[c]={};MKT_MONTHS.forEach(m=>catMonth[c][m]=0);});
+  ranked.forEach(r=>{
+    const c=(r.category||'').trim(), m=(r.month||'').trim();
+    if(catMonth[c]&&m in catMonth[c])catMonth[c][m]++;
+  });
+
+  // ── ② 순위 급등/급락: 라벨별 월간 최고순위(min rank) 추적 ──
+  const lblMonth={};  // label -> {cat, month->bestRank}
+  ranked.forEach(r=>{
+    const l=mktLabel(r), m=(r.month||'').trim(), rk=mktRank(r);
+    if(!(m in MKT_MLBL))return;
+    if(!lblMonth[l])lblMonth[l]={cat:(r.category||'').trim(),m:{},th:{}};
+    const o=lblMonth[l];
+    if(o.m[m]==null||rk<o.m[m]){o.m[m]=rk;o.th[m]=mktThumb(r)||o.th[m];}
+  });
+  // 초반(9~10월) 최고순위 vs 후반(1~2월) 최고순위 비교
+  const bestOf=(o,ms)=>{let b=null;ms.forEach(m=>{if(o.m[m]!=null&&(b==null||o.m[m]<b))b=o.m[m];});return b;};
+  const moves=[];
+  Object.entries(lblMonth).forEach(([l,o])=>{
+    const early=bestOf(o,['2025-09','2025-10','2025-11']);
+    const late =bestOf(o,['2025-12','2026-01','2026-02']);
+    const anyTh=MKT_MONTHS.map(m=>o.th[m]).find(Boolean)||'';
+    if(early!=null&&late!=null){
+      moves.push({label:l,cat:o.cat,early,late,delta:early-late,th:anyTh}); // delta>0 = 순위 상승
+    }else if(late!=null&&early==null){
+      moves.push({label:l,cat:o.cat,early:null,late,delta:99,th:anyTh,isNew:true});
+    }else if(early!=null&&late==null){
+      moves.push({label:l,cat:o.cat,early,late:null,delta:-99,th:anyTh,isGone:true});
+    }
+  });
+  const rising=moves.filter(m=>!m.isGone&&m.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,8);
+  const falling=moves.filter(m=>!m.isNew&&m.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,8);
+
+  // ── ③ 현재 월 TOP 랭킹 (기본: 마지막 월) ──
+  const curMonth=window.__MKT_MONTH||'2026-02';
+  const monthTop=ranked.filter(r=>(r.month||'').trim()===curMonth)
+    .sort((a,b)=>mktRank(a)-mktRank(b)).slice(0,12);
+
+  // ===== HTML 조립 =====
+  const CATNAME={Outer:'아우터',Top:'상의',Bottom:'하의',Bag:'가방',Shoes:'신발',Hat:'모자',Onepiece:'원피스'};
+  // 성별 탭
+  let gbtns=['ALL','여자','남자'].map(g=>`<button class="mkt-g ${MKT_GENDER===g?'on':''}" data-mktg="${g}">${g==='ALL'?'전체':g}</button>`).join('');
+
+  // ① 흐름 꺾은선 (SVG)
+  const W=760,H=220,PL=40,PR=16,PT=16,PB=30;
+  const maxV=Math.max(1,...MKT_CATS.map(([c])=>Math.max(...MKT_MONTHS.map(m=>catMonth[c][m]))));
+  const xAt=i=>PL+i*((W-PL-PR)/(MKT_MONTHS.length-1));
+  const yAt=v=>PT+(H-PT-PB)*(1-v/maxV);
+  let grid='';for(let g=0;g<=4;g++){const y=PT+(H-PT-PB)*g/4;const val=Math.round(maxV*(1-g/4));grid+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${PL-6}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--ink-3)" font-family="var(--mono)">${val}</text>`;}
+  let xlbls=MKT_MONTHS.map((m,i)=>`<text x="${xAt(i)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--ink-3)" font-family="var(--mono)">${MKT_MLBL[m]}</text>`).join('');
+  let lines=MKT_CATS.map(([c,ko,col])=>{
+    const pts=MKT_MONTHS.map((m,i)=>`${xAt(i)},${yAt(catMonth[c][m])}`).join(' ');
+    const dots=MKT_MONTHS.map((m,i)=>`<circle cx="${xAt(i)}" cy="${yAt(catMonth[c][m])}" r="3" fill="${col}"/>`).join('');
+    return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2"/>${dots}`;
+  }).join('');
+  let legend=MKT_CATS.map(([c,ko,col])=>`<span class="mkt-leg"><i style="background:${col}"></i>${ko}</span>`).join('');
+  const flowSVG=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-width:${W}px">${grid}${lines}${xlbls}</svg><div class="mkt-legwrap">${legend}</div>`;
+
+  // ② 순위 이동 카드
+  const moveCard=(m,up)=>{
+    const arrow=up?`<span class="mkt-up">▲${m.delta===99?'NEW':m.delta}</span>`:`<span class="mkt-dn">▼${m.delta===-99?'OUT':Math.abs(m.delta)}</span>`;
+    const path=m.isNew?`신규 → ${m.late}위`:m.isGone?`${m.early}위 → 이탈`:`${m.early}위 → ${m.late}위`;
+    return `<div class="mkt-move">${m.th?`<img src="${m.th}" loading="lazy">`:'<div class="mkt-noimg"></div>'}
+      <div class="mkt-move-body"><div class="mkt-move-lbl">${esc(m.label)} <span class="mkt-cat">${esc(CATNAME[m.cat]||m.cat)}</span></div>
+      <div class="mkt-move-path">${path}</div></div>${arrow}</div>`;
+  };
+  const risingHTML=rising.length?rising.map(m=>moveCard(m,true)).join(''):'<div class="mkt-empty">해당 없음</div>';
+  const fallingHTML=falling.length?falling.map(m=>moveCard(m,false)).join(''):'<div class="mkt-empty">해당 없음</div>';
+
+  // ③ 월 선택 + TOP 랭킹
+  let monthBtns=MKT_MONTHS.map(m=>`<button class="mkt-mbtn ${m===curMonth?'on':''}" data-mktmonth="${m}">${MKT_MLBL[m]}</button>`).join('');
+  let topHTML=monthTop.map(r=>{
+    const th=mktThumb(r);
+    return `<div class="mkt-rank-row"><span class="mkt-rk">${mktRank(r)}</span>
+      ${th?`<img src="${th}" loading="lazy">`:'<div class="mkt-noimg sm"></div>'}
+      <span class="mkt-rank-lbl">${esc(mktLabel(r))}</span>
+      <span class="mkt-cat">${esc(CATNAME[(r.category||'').trim()]||(r.category||'').trim())}</span></div>`;
+  }).join('')||'<div class="mkt-empty">이 달 데이터 없음</div>';
+
+  host.innerHTML=`
+    <div class="mkt-head">
+      <div class="mkt-title">Market Analysis <span>· 무신사 실판매 순위 (${ranked.length.toLocaleString()}건)</span></div>
+      <div class="mkt-gtabs">${gbtns}</div>
+    </div>
+    <div class="mkt-sec">
+      <div class="mkt-lbl">월별 카테고리 흐름 <span>· 순위권 진입 아이템 수</span></div>
+      ${flowSVG}
+    </div>
+    <div class="mkt-grid2">
+      <div class="mkt-sec">
+        <div class="mkt-lbl">순위 급상승 <span>· 가을 → 겨울 최고순위 상승폭</span></div>
+        <div class="mkt-movelist">${risingHTML}</div>
+      </div>
+      <div class="mkt-sec">
+        <div class="mkt-lbl">순위 하락 · 이탈 <span>· 겨울 들어 빠진 아이템</span></div>
+        <div class="mkt-movelist">${fallingHTML}</div>
+      </div>
+    </div>
+    <div class="mkt-sec">
+      <div class="mkt-lbl">월별 TOP 랭킹</div>
+      <div class="mkt-mbtns">${monthBtns}</div>
+      <div class="mkt-ranklist">${topHTML}</div>
+    </div>`;
+
+  // 이벤트 바인딩
+  host.querySelectorAll('[data-mktg]').forEach(b=>b.onclick=()=>{MKT_GENDER=b.dataset.mktg;renderMktDash();});
+  host.querySelectorAll('[data-mktmonth]').forEach(b=>b.onclick=()=>{window.__MKT_MONTH=b.dataset.mktmonth;renderMktDash();});
+}
+window.renderMktDash=renderMktDash;   // 다른 블록(renderMarketPreview)에서 호출용
+
+
   function eff(r){
     // visibility_score < 2 이면 음식/강아지/배경만 있는 사진 → 제외
     const _vs=parseFloat((r&&r.visibility_score)||'0');

@@ -1316,7 +1316,12 @@
   <!-- PROPOSAL (CSV-driven, no backend) -->
   <div class="panel" id="panel-proposal">
     <div id="proposalInner">
-      <div id="marketPreviewHead" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <!-- [TEST] 무신사 마켓 대시보드 (신규) -->
+      <div id="mktDash"></div>
+      <!-- ↓ 기존 시즌 리포트 (접어둠) -->
+      <details id="mktLegacy" style="margin-top:26px">
+      <summary style="font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--ink-3);cursor:pointer;padding:8px 0">▸ 기존 시즌 리포트 (WGSN·인스타 포함 전체)</summary>
+      <div id="marketPreviewHead" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;flex-wrap:wrap">
         <div style="font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--ink-3);text-transform:uppercase">Season Report · 화면 미리보기 (다운로드와 동일)</div>
         <button class="chip" style="cursor:pointer" onclick="exportSeasonReport()">⬇ 이 리포트 다운로드</button>
       </div>
@@ -1326,6 +1331,7 @@
         <div class="empty-sub">데이터를 로드하면 시즌 리포트가 여기에 바로 보입니다</div>
       </div>
       <iframe id="marketFrame" style="display:none;width:100%;height:calc(100vh - 220px);border:1px solid var(--line-soft);border-radius:12px;background:#f4f1ec"></iframe>
+      </details>
     </div>
   </div>
 
@@ -1553,6 +1559,153 @@ function __filterCSVbySeason(text, season){
 }
 
 // ─── Market Analysis 탭 = 시즌 리포트 인-페이지 미리보기 ───
+// ══════════════════════════════════════════════════════════════════
+//  [TEST] MUSINSA MARKET DASHBOARD
+//  무신사 실판매 순위(musinsa_rank) + 월별 흐름 전용.
+//  인스타/WGSN 제외, 무신사(source: musinsa/ranking) 데이터만 사용.
+// ══════════════════════════════════════════════════════════════════
+const MKT_MONTHS=['2025-09','2025-10','2025-11','2025-12','2026-01','2026-02'];
+const MKT_MLBL={'2025-09':'9월','2025-10':'10월','2025-11':'11월','2025-12':'12월','2026-01':'1월','2026-02':'2월'};
+const MKT_CATS=[['Outer','아우터','#2563FF'],['Top','상의','#16a34a'],['Bottom','하의','#f59e0b'],['Bag','가방','#a855f7'],['Shoes','신발','#ec4899'],['Hat','모자','#06b6d4']];
+let MKT_GENDER='ALL';   // ALL / 여자 / 남자
+
+function mktRows(){
+  // 무신사 데이터만, 현재 성별 필터 적용
+  const out=[];
+  FILES.forEach(f=>f.rows.forEach(r=>{
+    const sk=(r.source||'').toLowerCase();
+    if(sk!=='musinsa'&&sk!=='ranking')return;
+    if((r.category||'').trim()==='Exclude')return;
+    if(MKT_GENDER!=='ALL'){
+      const g=String(r.gender||'').trim();
+      if(g&&g!==MKT_GENDER)return;
+    }
+    out.push(r);
+  }));
+  return out;
+}
+function mktRank(r){const v=parseFloat(r.musinsa_rank);return isNaN(v)?null:v;}
+function mktLabel(r){return (r.sub2||r.sub_category||r.base_garment||'').trim()||'기타';}
+function mktThumb(r){try{const im=JSON.parse(r.images||'[]')[0];let t=im&&(im.thumbUrl||im.fullUrl);if(t&&!String(t).startsWith('data:'))return String(t);}catch(e){}return '';}
+
+function renderMktDash(){
+  const host=document.getElementById('mktDash');
+  if(!host)return;
+  const rows=mktRows();
+  if(!rows.length){host.innerHTML='<div class="empty" style="padding:40px 0"><div class="empty-mark">◳</div><div class="empty-title">무신사 데이터 없음</div><div class="empty-sub">웹 주소(https://...github.io)로 열어야 무신사 시트를 읽습니다. 로컬 파일(file://)에서는 안 나옵니다.</div></div>';return;}
+  const ranked=rows.filter(r=>mktRank(r)!=null);
+
+  // ── ① 월별 카테고리 흐름 (건수 기준) ──
+  const catMonth={};  // cat -> month -> count
+  MKT_CATS.forEach(([c])=>{catMonth[c]={};MKT_MONTHS.forEach(m=>catMonth[c][m]=0);});
+  ranked.forEach(r=>{
+    const c=(r.category||'').trim(), m=(r.month||'').trim();
+    if(catMonth[c]&&m in catMonth[c])catMonth[c][m]++;
+  });
+
+  // ── ② 순위 급등/급락: 라벨별 월간 최고순위(min rank) 추적 ──
+  const lblMonth={};  // label -> {cat, month->bestRank}
+  ranked.forEach(r=>{
+    const l=mktLabel(r), m=(r.month||'').trim(), rk=mktRank(r);
+    if(!(m in MKT_MLBL))return;
+    if(!lblMonth[l])lblMonth[l]={cat:(r.category||'').trim(),m:{},th:{}};
+    const o=lblMonth[l];
+    if(o.m[m]==null||rk<o.m[m]){o.m[m]=rk;o.th[m]=mktThumb(r)||o.th[m];}
+  });
+  // 초반(9~10월) 최고순위 vs 후반(1~2월) 최고순위 비교
+  const bestOf=(o,ms)=>{let b=null;ms.forEach(m=>{if(o.m[m]!=null&&(b==null||o.m[m]<b))b=o.m[m];});return b;};
+  const moves=[];
+  Object.entries(lblMonth).forEach(([l,o])=>{
+    const early=bestOf(o,['2025-09','2025-10','2025-11']);
+    const late =bestOf(o,['2025-12','2026-01','2026-02']);
+    const anyTh=MKT_MONTHS.map(m=>o.th[m]).find(Boolean)||'';
+    if(early!=null&&late!=null){
+      moves.push({label:l,cat:o.cat,early,late,delta:early-late,th:anyTh}); // delta>0 = 순위 상승
+    }else if(late!=null&&early==null){
+      moves.push({label:l,cat:o.cat,early:null,late,delta:99,th:anyTh,isNew:true});
+    }else if(early!=null&&late==null){
+      moves.push({label:l,cat:o.cat,early,late:null,delta:-99,th:anyTh,isGone:true});
+    }
+  });
+  const rising=moves.filter(m=>!m.isGone&&m.delta>0).sort((a,b)=>b.delta-a.delta).slice(0,8);
+  const falling=moves.filter(m=>!m.isNew&&m.delta<0).sort((a,b)=>a.delta-b.delta).slice(0,8);
+
+  // ── ③ 현재 월 TOP 랭킹 (기본: 마지막 월) ──
+  const curMonth=window.__MKT_MONTH||'2026-02';
+  const monthTop=ranked.filter(r=>(r.month||'').trim()===curMonth)
+    .sort((a,b)=>mktRank(a)-mktRank(b)).slice(0,12);
+
+  // ===== HTML 조립 =====
+  const CATNAME={Outer:'아우터',Top:'상의',Bottom:'하의',Bag:'가방',Shoes:'신발',Hat:'모자',Onepiece:'원피스'};
+  // 성별 탭
+  let gbtns=['ALL','여자','남자'].map(g=>`<button class="mkt-g ${MKT_GENDER===g?'on':''}" data-mktg="${g}">${g==='ALL'?'전체':g}</button>`).join('');
+
+  // ① 흐름 꺾은선 (SVG)
+  const W=760,H=220,PL=40,PR=16,PT=16,PB=30;
+  const maxV=Math.max(1,...MKT_CATS.map(([c])=>Math.max(...MKT_MONTHS.map(m=>catMonth[c][m]))));
+  const xAt=i=>PL+i*((W-PL-PR)/(MKT_MONTHS.length-1));
+  const yAt=v=>PT+(H-PT-PB)*(1-v/maxV);
+  let grid='';for(let g=0;g<=4;g++){const y=PT+(H-PT-PB)*g/4;const val=Math.round(maxV*(1-g/4));grid+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--line)" stroke-width="1"/><text x="${PL-6}" y="${y+3}" text-anchor="end" font-size="9" fill="var(--ink-3)" font-family="var(--mono)">${val}</text>`;}
+  let xlbls=MKT_MONTHS.map((m,i)=>`<text x="${xAt(i)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--ink-3)" font-family="var(--mono)">${MKT_MLBL[m]}</text>`).join('');
+  let lines=MKT_CATS.map(([c,ko,col])=>{
+    const pts=MKT_MONTHS.map((m,i)=>`${xAt(i)},${yAt(catMonth[c][m])}`).join(' ');
+    const dots=MKT_MONTHS.map((m,i)=>`<circle cx="${xAt(i)}" cy="${yAt(catMonth[c][m])}" r="3" fill="${col}"/>`).join('');
+    return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2"/>${dots}`;
+  }).join('');
+  let legend=MKT_CATS.map(([c,ko,col])=>`<span class="mkt-leg"><i style="background:${col}"></i>${ko}</span>`).join('');
+  const flowSVG=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-width:${W}px">${grid}${lines}${xlbls}</svg><div class="mkt-legwrap">${legend}</div>`;
+
+  // ② 순위 이동 카드
+  const moveCard=(m,up)=>{
+    const arrow=up?`<span class="mkt-up">▲${m.delta===99?'NEW':m.delta}</span>`:`<span class="mkt-dn">▼${m.delta===-99?'OUT':Math.abs(m.delta)}</span>`;
+    const path=m.isNew?`신규 → ${m.late}위`:m.isGone?`${m.early}위 → 이탈`:`${m.early}위 → ${m.late}위`;
+    return `<div class="mkt-move">${m.th?`<img src="${m.th}" loading="lazy">`:'<div class="mkt-noimg"></div>'}
+      <div class="mkt-move-body"><div class="mkt-move-lbl">${esc(m.label)} <span class="mkt-cat">${esc(CATNAME[m.cat]||m.cat)}</span></div>
+      <div class="mkt-move-path">${path}</div></div>${arrow}</div>`;
+  };
+  const risingHTML=rising.length?rising.map(m=>moveCard(m,true)).join(''):'<div class="mkt-empty">해당 없음</div>';
+  const fallingHTML=falling.length?falling.map(m=>moveCard(m,false)).join(''):'<div class="mkt-empty">해당 없음</div>';
+
+  // ③ 월 선택 + TOP 랭킹
+  let monthBtns=MKT_MONTHS.map(m=>`<button class="mkt-mbtn ${m===curMonth?'on':''}" data-mktmonth="${m}">${MKT_MLBL[m]}</button>`).join('');
+  let topHTML=monthTop.map(r=>{
+    const th=mktThumb(r);
+    return `<div class="mkt-rank-row"><span class="mkt-rk">${mktRank(r)}</span>
+      ${th?`<img src="${th}" loading="lazy">`:'<div class="mkt-noimg sm"></div>'}
+      <span class="mkt-rank-lbl">${esc(mktLabel(r))}</span>
+      <span class="mkt-cat">${esc(CATNAME[(r.category||'').trim()]||(r.category||'').trim())}</span></div>`;
+  }).join('')||'<div class="mkt-empty">이 달 데이터 없음</div>';
+
+  host.innerHTML=`
+    <div class="mkt-head">
+      <div class="mkt-title">Market Analysis <span>· 무신사 실판매 순위 (${ranked.length.toLocaleString()}건)</span></div>
+      <div class="mkt-gtabs">${gbtns}</div>
+    </div>
+    <div class="mkt-sec">
+      <div class="mkt-lbl">월별 카테고리 흐름 <span>· 순위권 진입 아이템 수</span></div>
+      ${flowSVG}
+    </div>
+    <div class="mkt-grid2">
+      <div class="mkt-sec">
+        <div class="mkt-lbl">순위 급상승 <span>· 가을 → 겨울 최고순위 상승폭</span></div>
+        <div class="mkt-movelist">${risingHTML}</div>
+      </div>
+      <div class="mkt-sec">
+        <div class="mkt-lbl">순위 하락 · 이탈 <span>· 겨울 들어 빠진 아이템</span></div>
+        <div class="mkt-movelist">${fallingHTML}</div>
+      </div>
+    </div>
+    <div class="mkt-sec">
+      <div class="mkt-lbl">월별 TOP 랭킹</div>
+      <div class="mkt-mbtns">${monthBtns}</div>
+      <div class="mkt-ranklist">${topHTML}</div>
+    </div>`;
+
+  // 이벤트 바인딩
+  host.querySelectorAll('[data-mktg]').forEach(b=>b.onclick=()=>{MKT_GENDER=b.dataset.mktg;renderMktDash();});
+  host.querySelectorAll('[data-mktmonth]').forEach(b=>b.onclick=()=>{window.__MKT_MONTH=b.dataset.mktmonth;renderMktDash();});
+}
+
 function renderMarketPreview(){
   const frame=document.getElementById('marketFrame');
   const empty=document.getElementById('marketEmpty');
@@ -1560,6 +1713,7 @@ function renderMarketPreview(){
   // 패널이 화면에 보일 때만 무거운 iframe 재생성 (다른 탭이면 스킵)
   const panel=document.getElementById('panel-proposal');
   if(panel && !panel.classList.contains('on'))return;
+  try{renderMktDash();}catch(e){console.warn('mktDash',e);}   // [TEST] 무신사 대시보드
   if(typeof window.__buildSeasonReport!=='function'){return;}
   const season=STATE.seasonCode;
   const report=window.__buildSeasonReport(season);
@@ -4556,6 +4710,65 @@ renderHealth();
   .ov-lvllbl{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-right:2px}
   .ov-lvl{font-family:var(--mono);font-size:10px;padding:4px 11px;border:1px solid var(--line);border-radius:999px;cursor:pointer;color:var(--ink-2)}
   .ov-lvl.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  /* ── [TEST] Overview 요약 블록 ── */
+  .ovsum{margin:18px 0 26px}
+  .ovs-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px}
+  .ovs-card{border:1px solid var(--line);border-radius:10px;padding:13px 14px;background:#fff}
+  .ovs-card-cat{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--ink-3);margin-bottom:7px}
+  .ovs-card-lbl{font-size:14px;font-weight:600;color:var(--ink);line-height:1.25;min-height:34px}
+  .ovs-card-num{font-size:19px;font-weight:700;color:var(--ink);margin-top:6px;display:flex;align-items:baseline;gap:6px}
+  .ovs-card-sh{font-size:10px;font-weight:500;color:var(--ink-3);font-family:var(--mono)}
+  .ovs-card-gr{margin-top:4px;font-size:11px;font-family:var(--mono)}
+  .ovs-cols{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+  @media(max-width:820px){.ovs-cols{grid-template-columns:1fr}}
+  .ovs-col{border:1px solid var(--line);border-radius:10px;padding:15px 16px;background:#fff}
+  .ovs-h{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);margin-bottom:12px;font-weight:600}
+  .ovs-h span{color:var(--ink-3);font-weight:400;letter-spacing:.04em;text-transform:none}
+  .ovs-row{display:flex;align-items:center;gap:9px;padding:6px 0}
+  .ovs-rank{font-family:var(--mono);font-size:10px;color:var(--ink-3);width:13px;flex:none}
+  .ovs-name{font-size:12.5px;color:var(--ink);width:132px;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ovs-bar{flex:1;height:7px;background:var(--line);border-radius:99px;overflow:hidden;min-width:30px}
+  .ovs-bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+  .ovs-bar-up i{background:#16a34a}
+  .ovs-val{font-family:var(--mono);font-size:11px;color:var(--ink-2);width:56px;text-align:right;flex:none}
+  .ovs-up{color:#16a34a;font-weight:600}
+  .ovs-dn{color:#dc2626;font-weight:600}
+  .ovs-flat{color:var(--ink-3)}
+  .ovs-empty{font-size:12px;color:var(--ink-3);padding:14px 0}
+  /* ── [TEST] 무신사 마켓 대시보드 ── */
+  #mktDash .mkt-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+  #mktDash .mkt-title{font-size:17px;font-weight:600;color:var(--ink)}
+  #mktDash .mkt-title span{font-size:12px;font-weight:400;color:var(--ink-3);font-family:var(--mono)}
+  #mktDash .mkt-gtabs{display:flex;gap:5px}
+  #mktDash .mkt-g{font-family:var(--mono);font-size:11px;padding:6px 15px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;color:var(--ink-2)}
+  #mktDash .mkt-g.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  #mktDash .mkt-sec{border:1px solid var(--line);border-radius:12px;padding:18px 20px;background:#fff;margin-bottom:16px}
+  #mktDash .mkt-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);font-weight:600;margin-bottom:14px}
+  #mktDash .mkt-lbl span{color:var(--ink-3);font-weight:400;letter-spacing:.03em;text-transform:none}
+  #mktDash .mkt-legwrap{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;justify-content:center}
+  #mktDash .mkt-leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-2)}
+  #mktDash .mkt-leg i{width:11px;height:3px;border-radius:2px;display:inline-block}
+  #mktDash .mkt-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){#mktDash .mkt-grid2{grid-template-columns:1fr}}
+  #mktDash .mkt-move{display:flex;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid #f2eee8}
+  #mktDash .mkt-move:last-child{border-bottom:none}
+  #mktDash .mkt-move img,#mktDash .mkt-noimg{width:38px;height:50px;object-fit:cover;border-radius:5px;border:.5px solid var(--line);flex:none;background:var(--soft,#f5f3ef)}
+  #mktDash .mkt-noimg.sm{width:34px;height:44px}
+  #mktDash .mkt-move-body{flex:1;min-width:0}
+  #mktDash .mkt-move-lbl{font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #mktDash .mkt-cat{font-size:10px;color:var(--ink-3);font-family:var(--mono);margin-left:4px}
+  #mktDash .mkt-move-path{font-size:11px;color:var(--ink-3);font-family:var(--mono);margin-top:2px}
+  #mktDash .mkt-up{color:#16a34a;font-weight:700;font-family:var(--mono);font-size:12px;flex:none}
+  #mktDash .mkt-dn{color:#dc2626;font-weight:700;font-family:var(--mono);font-size:12px;flex:none}
+  #mktDash .mkt-mbtns{display:flex;gap:5px;margin-bottom:14px;flex-wrap:wrap}
+  #mktDash .mkt-mbtn{font-family:var(--mono);font-size:11px;padding:5px 13px;border:1px solid var(--line);border-radius:999px;background:#fff;cursor:pointer;color:var(--ink-2)}
+  #mktDash .mkt-mbtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  #mktDash .mkt-rank-row{display:flex;align-items:center;gap:11px;padding:7px 0;border-bottom:1px solid #f2eee8}
+  #mktDash .mkt-rank-row:last-child{border-bottom:none}
+  #mktDash .mkt-rank-row img{width:34px;height:44px;object-fit:cover;border-radius:5px;border:.5px solid var(--line);flex:none}
+  #mktDash .mkt-rk{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--ink);width:26px;text-align:center;flex:none}
+  #mktDash .mkt-rank-lbl{flex:1;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #mktDash .mkt-empty{font-size:12px;color:var(--ink-3);padding:12px 0}
   .ov-sub2row{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
   .ov-sub2{font-family:var(--mono);font-size:10px;padding:4px 12px;border:1px solid var(--line);border-radius:999px;cursor:pointer;color:var(--ink-2);background:#fafafa}
   .ov-sub2.on{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -5721,6 +5934,102 @@ renderHealth();
 
   function hasData(){return FILES.some(f=>f.rows.length);}
 
+  // ══════════════════════════════════════════════════════════════
+  //  Overview 요약 블록  [TEST]
+  //   (가) TOP 5  +  급상승 TOP 5
+  //   (다) 카테고리별 1위 카드
+  //  ※ 급상승은 "건수"가 아니라 "비중(share)" 으로 계산.
+  //    월별 표본 크기가 달라서(9~10월 대비 1~2월이 1/3) 건수로 비교하면 전부 하락으로 나옴.
+  // ══════════════════════════════════════════════════════════════
+  const OVSUM_EARLY=['2025-09','2025-10'];   // 시즌 전반
+  const OVSUM_LATE =['2026-01','2026-02'];   // 시즌 후반
+  const OVSUM_MINP=8;   // 후반 최소 건수 (노이즈 제거)
+  const OVSUM_MINE=5;   // 전반 최소 건수
+
+  function ovsumRows(){
+    // aggregate() 와 동일한 라벨 규칙을 쓰되, month 별로 나눠 센다
+    const early=new Map(), late=new Map(), total=new Map(), catTop=new Map();
+    let eTot=0, lTot=0;
+    const _SKIP=new Set(["T-shirts","Sweat / Hood","Knitwear","Shirts / Blouse","Tank / Bra top","Pants","Shorts","Skirt / Skort","Leggings","Skirt+Pants","Jacket","Coat","Active","Padding / Down","Warm-up & Heavy","Vest","Casual / Daily Dress","Knit","Feminine","Handheld","Shoulder","Crossbody","Tote","Backpack","Seasonal","Clutch / Pouch","Sneakers","Flat / Heels","Sandals / Slides","Boots","Caps","Beanie / Soft","Brimmed Hats","ACC","Top","Bottom","Swimwear"]);
+    FILES.forEach(f=>f.rows.forEach(r=>{
+      const ef=eff(r); if(!ef) return;
+      const cat=ef.category; if(!cat) return;
+      const sub2=ef.sub2, sub1=ef.sub_category;
+      const label=(sub2&&!_SKIP.has(sub2))?sub2:((sub1&&!_SKIP.has(sub1))?sub1:null);
+      if(!label) return;
+      // 'Other ~' / 'Unknown ~' 같은 미분류 라벨은 요약에서 제외 (트렌드 신호가 아님)
+      if(/^(other|unknown|기타|미분류)\b/i.test(label)) return;
+      total.set(label,(total.get(label)||0)+1);
+      // 카테고리별 1위 집계
+      if(!catTop.has(cat))catTop.set(cat,new Map());
+      const cm=catTop.get(cat); cm.set(label,(cm.get(label)||0)+1);
+      const mo=String(r.month||'').trim();
+      if(OVSUM_EARLY.includes(mo)){eTot++; early.set(label,(early.get(label)||0)+1);}
+      else if(OVSUM_LATE.includes(mo)){lTot++; late.set(label,(late.get(label)||0)+1);}
+    }));
+    // 급상승: 비중 변화율
+    const rise=[];
+    if(eTot>0&&lTot>0){
+      late.forEach((lc,label)=>{
+        const ec=early.get(label)||0;
+        if(lc<OVSUM_MINP||ec<OVSUM_MINE)return;
+        const ls=lc/lTot, es=ec/eTot;
+        rise.push({label, pct:Math.round((ls-es)/es*100), early:ec, late:lc,
+                   cat:(()=>{for(const[c,m] of catTop)if(m.has(label))return c;return '';})()});
+      });
+      rise.sort((a,b)=>b.pct-a.pct);
+    }
+    const top=[...total.entries()].sort((a,b)=>b[1]-a[1]).slice(0,5)
+      .map(([label,n])=>({label,n,cat:(()=>{for(const[c,m] of catTop)if(m.has(label))return c;return '';})()}));
+    // 카테고리 카드 (주요 5개만)
+    const CARD_ORDER=['TOP','BOTTOM','OUTERWEAR','BAG','ACC'];
+    const cards=CARD_ORDER.filter(c=>catTop.has(c)).map(c=>{
+      const m=catTop.get(c);
+      const [label,n]=[...m.entries()].sort((a,b)=>b[1]-a[1])[0];
+      const tot=[...m.values()].reduce((a,b)=>a+b,0);
+      const rr=rise.find(x=>x.label===label);
+      return {cat:c,label,n,share:Math.round(n/tot*100),pct:rr?rr.pct:null};
+    });
+    return {top, rise:rise.slice(0,5), cards, eTot, lTot};
+  }
+
+  function ovsumHTML(){
+    let S; try{S=ovsumRows();}catch(e){return '';}
+    if(!S||!S.top.length)return '';
+    const CN={TOP:'TOP',BOTTOM:'BOTTOM',OUTERWEAR:'OUTER',BAG:'BAG',ACC:'SHOES/ACC',HAT:'HAT'};
+    const pctTag=p=>p==null?'<span class="ovs-flat">—</span>'
+      :(p>0?`<span class="ovs-up">▲${p}%</span>`:p<0?`<span class="ovs-dn">▼${Math.abs(p)}%</span>`:'<span class="ovs-flat">–</span>');
+    // (다) 카테고리 카드
+    let cards=S.cards.map(c=>`<div class="ovs-card">
+        <div class="ovs-card-cat">${esc(CN[c.cat]||c.cat)}</div>
+        <div class="ovs-card-lbl">${esc(c.label)}</div>
+        <div class="ovs-card-num">${c.n.toLocaleString()}<span class="ovs-card-sh">${c.share}%</span></div>
+        <div class="ovs-card-gr">${pctTag(c.pct)}</div>
+      </div>`).join('');
+    // (가) TOP5 + 급상승 TOP5
+    const maxTop=S.top[0]?S.top[0].n:1;
+    let l1=S.top.map((t,i)=>`<div class="ovs-row">
+        <span class="ovs-rank">${i+1}</span>
+        <span class="ovs-name">${esc(t.label)}</span>
+        <span class="ovs-bar"><i style="width:${Math.max(4,Math.round(t.n/maxTop*100))}%"></i></span>
+        <span class="ovs-val">${t.n.toLocaleString()}</span></div>`).join('');
+    const maxR=S.rise[0]?Math.abs(S.rise[0].pct):1;
+    let l2=S.rise.length?S.rise.map((t,i)=>`<div class="ovs-row">
+        <span class="ovs-rank">${i+1}</span>
+        <span class="ovs-name">${esc(t.label)}</span>
+        <span class="ovs-bar ovs-bar-up"><i style="width:${Math.max(4,Math.round(Math.abs(t.pct)/maxR*100))}%"></i></span>
+        <span class="ovs-val">${pctTag(t.pct)}</span></div>`).join('')
+      : '<div class="ovs-empty">월별 데이터가 부족해 계산할 수 없어요</div>';
+    return `<div class="ovsum">
+      <div class="ovs-cards">${cards}</div>
+      <div class="ovs-cols">
+        <div class="ovs-col">
+          <div class="ovs-h">TOP 5 <span>· 이번 시즌 최다</span></div>${l1}</div>
+        <div class="ovs-col">
+          <div class="ovs-h">급상승 TOP 5 <span>· 9~10월 → 1~2월 비중 변화</span></div>${l2}</div>
+      </div></div>`;
+  }
+
   // ── Overview 표 ──
   function renderOverview(){
     if(!hasData())return;
@@ -5728,6 +6037,8 @@ renderHealth();
     const srcNames=[...loadedSources()].map(s=>(SRCMETA[s]||['',s])[1]).filter(Boolean);
     const srcLine=srcNames.length?' · data: '+[...new Set(srcNames)].join(', '):'';
     let h=`<div class="ov-head">Overview${OV_CAT!=='ALL'?' — '+esc(OV_CAT==='HAT'?'HAT/SHOE':OV_CAT):''}</div><div class="ov-sub">${OV_CAT==='ALL'?'All sources combined':esc(OV_CAT==='HAT'?'HAT/SHOE':OV_CAT)} · ${T.length} trends · engagement = posts${esc(srcLine)}</div>`;
+    // [TEST] 요약 블록 — 필터 안 걸린 전체 기준. ALL 카테고리일 때만 표시
+    if(OV_CAT==='ALL'&&OV_SUB==='ALL') h+=ovsumHTML();
     h+=`<div class="ov-levels"><span class="ov-lvllbl">Level</span>
       <span class="ov-lvl ${OV_LEVEL==='sub_category'?'on':''}" data-ovlvl="sub_category">Category</span>
       <span class="ov-lvl ${OV_LEVEL==='sub2'?'on':''}" data-ovlvl="sub2">Item</span>
